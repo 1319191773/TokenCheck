@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GLM Usage</string>
+    <string name="widget_description">显示 GLM API 用量信息：Token 与 MCP 百分比</string>
+</resources>

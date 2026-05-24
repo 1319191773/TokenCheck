@@ -1,0 +1,16 @@
+build/
+*.o
+*.obj
+*.user
+*.pro.user*
+Makefile*
+*.so
+*.apk
+*.aab
+moc_*
+ui_*
+qrc_*
+.qmake.stash
+.android-build/
+.gradle/
+local.properties

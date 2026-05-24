@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.glm.usage"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:label="TokenCheck"
+        android:icon="@android:drawable/sym_def_app_icon">
+
+        <activity
+            android:name="org.qtproject.qt.android.bindings.QtActivity"
+            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+            android:label="TokenCheck"
+            android:launchMode="singleTop"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="TokenCheck" />
+        </activity>
+
+        <receiver
+            android:name="com.glm.usage.GlmUsageWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.glm.usage.WIDGET_UPDATE" />
+                <action android:name="com.glm.usage.WIDGET_REFRESH" />
+                <action android:name="com.glm.usage.WIDGET_SWITCH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tokencheck_widget_info" />
+        </receiver>
+
+    </application>
+</manifest>

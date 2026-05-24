@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="8dp"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:id="@+id/tokenArea"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/tokenPctText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--%"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Token"
+                android:textSize="11sp"
+                android:textColor="#AAAACC" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/mcpArea"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/mcpPctText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--%"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MCP"
+                android:textSize="11sp"
+                android:textColor="#AAAACC" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/timeArea"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/resetTimeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--:--"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="重置"
+                android:textSize="11sp"
+                android:textColor="#AAAACC" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/refreshArea"
+            android:layout_width="26dp"
+            android:layout_height="match_parent"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/refreshBtn"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:text="R"
+                android:textSize="13sp"
+                android:textColor="#4488FF"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/platformBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingTop="4dp">
+
+        <TextView
+            android:id="@+id/btnPrev"
+            android:layout_width="22dp"
+            android:layout_height="20dp"
+            android:text="\u25C0"
+            android:textSize="11sp"
+            android:textColor="#4488FF"
+            android:gravity="center"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/platformName0"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/platformName1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="13sp"
+            android:textColor="#FFFFFF"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/platformName2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btnNext"
+            android:layout_width="22dp"
+            android:layout_height="20dp"
+            android:text="\u25B6"
+            android:textSize="11sp"
+            android:textColor="#4488FF"
+            android:gravity="center"
+            android:visibility="gone" />
+    </LinearLayout>
+
+</LinearLayout>
