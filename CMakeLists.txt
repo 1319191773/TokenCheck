@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 set(ANDROID_PLATFORM android-34 CACHE STRING "Android target API level")
 
-project(TokenCheck
+project(easyGlmUsage
     VERSION 1.0
     LANGUAGES CXX
 )
@@ -13,7 +13,7 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Network Qml Quick QuickControls2)
 
-qt_add_executable(TokenCheck
+qt_add_executable(easyGlmUsage
     src/main.cpp
     src/usagequery.cpp
     src/appsettings.cpp
@@ -21,18 +21,21 @@ qt_add_executable(TokenCheck
     src/androidprefs.cpp
 )
 
-qt_add_resources(TokenCheck "qml_files"
+qt_add_resources(easyGlmUsage "qml_files"
     PREFIX "/"
     FILES
+        src/qml/qmldir
+        src/qml/Theme.qml
         src/qml/MainPage.qml
+        src/qml/MainContentPage.qml
         src/qml/DetailPage.qml
         src/qml/SettingsPage.qml
         src/qml/PlatformEditPage.qml
 )
 
-target_include_directories(TokenCheck PRIVATE src)
+target_include_directories(easyGlmUsage PRIVATE src)
 
-target_link_libraries(TokenCheck PRIVATE
+target_link_libraries(easyGlmUsage PRIVATE
     Qt6::Core
     Qt6::Network
     Qt6::Qml
@@ -40,7 +43,7 @@ target_link_libraries(TokenCheck PRIVATE
     Qt6::QuickControls2
 )
 
-set_target_properties(TokenCheck PROPERTIES
+set_target_properties(easyGlmUsage PROPERTIES
     QT_QML_IMPORT_PATH "${CMAKE_SOURCE_DIR}/src/qml"
     QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/android"
 )
@@ -52,7 +55,7 @@ if(ANDROID_ABI)
         file(MAKE_DIRECTORY "${ANDROID_SSL_STAGING}")
         configure_file("${ANDROID_SSL_DIR}/libssl_3.so" "${ANDROID_SSL_STAGING}/libssl.so" COPYONLY)
         configure_file("${ANDROID_SSL_DIR}/libcrypto_3.so" "${ANDROID_SSL_STAGING}/libcrypto.so" COPYONLY)
-        set_property(TARGET TokenCheck APPEND PROPERTY
+        set_property(TARGET easyGlmUsage APPEND PROPERTY
             QT_ANDROID_EXTRA_LIBS
             "${ANDROID_SSL_STAGING}/libssl.so"
             "${ANDROID_SSL_STAGING}/libcrypto.so"

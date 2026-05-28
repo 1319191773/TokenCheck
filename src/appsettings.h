@@ -23,7 +23,8 @@ public:
     Q_INVOKABLE void setPlatform(int index, const QString &name, const QString &baseUrl,
                                   const QString &token, const QString &apiPrefix, bool enabled);
     Q_INVOKABLE void addPlatform(const QString &name, const QString &baseUrl,
-                                  const QString &token, const QString &apiPrefix);
+                                  const QString &token, const QString &apiPrefix,
+                                  bool enabled = true);
     Q_INVOKABLE void removePlatform(int index);
     PlatformConfig platformAt(int index) const;
     QList<PlatformConfig> allPlatforms() const;
@@ -44,6 +45,13 @@ public:
     Q_INVOKABLE void syncWidgetConfig();
 
     Q_INVOKABLE bool isConfigured() const;
+
+    Q_INVOKABLE void cacheUsageData(const QString &json);
+    Q_INVOKABLE QString loadCachedUsageData() const;
+
+signals:
+    void platformsChanged();
+    void settingsChanged();
 
 private:
     explicit AppSettings(QObject *parent = nullptr);

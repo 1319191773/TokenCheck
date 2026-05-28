@@ -1,4 +1,4 @@
-﻿#include "androidprefs.h"
+#include "androidprefs.h"
 #include <QJniObject>
 
 static QJniObject getCtx()

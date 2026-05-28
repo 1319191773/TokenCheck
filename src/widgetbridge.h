@@ -13,7 +13,8 @@ public slots:
     void onPlatformFinished(const UsageData &data);
     void onAllFinished();
 private:
-    int m_platformIndex = 0;
+    int resolvePlatformIndex(const QString &platformName) const;
+    int m_completedCount = 0;
 };
 
 #endif

@@ -9,13 +9,13 @@
 
     <application
         android:name="org.qtproject.qt.android.bindings.QtApplication"
-        android:label="TokenCheck"
+        android:label="GLM Usage"
         android:icon="@android:drawable/sym_def_app_icon">
 
         <activity
             android:name="org.qtproject.qt.android.bindings.QtActivity"
             android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
-            android:label="TokenCheck"
+            android:label="GLM Usage"
             android:launchMode="singleTop"
             android:exported="true">
 
@@ -26,7 +26,7 @@
 
             <meta-data
                 android:name="android.app.lib_name"
-                android:value="TokenCheck" />
+                android:value="easyGlmUsage" />
         </activity>
 
         <receiver
@@ -40,7 +40,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/tokencheck_widget_info" />
+                android:resource="@xml/glm_widget_info" />
         </receiver>
 
     </application>

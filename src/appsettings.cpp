@@ -1,4 +1,4 @@
-﻿#include "appsettings.h"
+#include "appsettings.h"
 #include "androidprefs.h"
 #include <QStandardPaths>
 #include <QDir>
@@ -6,9 +6,9 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QDateTime>
 
-AppSettings::AppSettings(QObject *parent)
-    : QObject(parent)
+AppSettings::AppSettings(QObject *parent) : QObject(parent)
 {
     m_filePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                  + "/settings.json";
@@ -24,19 +24,28 @@ AppSettings &AppSettings::instance()
 
 int AppSettings::platformCount() const { return m_platforms.size(); }
 
-QString AppSettings::platformName(int i) const {
+QString AppSettings::platformName(int i) const
+{
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].name : QString();
 }
-QString AppSettings::platformBaseUrl(int i) const {
+
+QString AppSettings::platformBaseUrl(int i) const
+{
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].baseUrl : QString();
 }
-QString AppSettings::platformAuthToken(int i) const {
+
+QString AppSettings::platformAuthToken(int i) const
+{
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].authToken : QString();
 }
-QString AppSettings::platformApiPrefix(int i) const {
+
+QString AppSettings::platformApiPrefix(int i) const
+{
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].apiPrefix : QString();
 }
-bool AppSettings::platformEnabled(int i) const {
+
+bool AppSettings::platformEnabled(int i) const
+{
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].enabled : false;
 }
 
@@ -50,20 +59,23 @@ void AppSettings::setPlatform(int i, const QString &name, const QString &baseUrl
         m_platforms[i].apiPrefix = apiPrefix;
         m_platforms[i].enabled = enabled;
         save();
+        emit platformsChanged();
     }
 }
 
 void AppSettings::addPlatform(const QString &name, const QString &baseUrl,
-                               const QString &token, const QString &apiPrefix)
+                               const QString &token, const QString &apiPrefix,
+                               bool enabled)
 {
     PlatformConfig pc;
     pc.name = name;
     pc.baseUrl = baseUrl;
     pc.authToken = token;
     pc.apiPrefix = apiPrefix.isEmpty() ? "/api/monitor/usage" : apiPrefix;
-    pc.enabled = true;
+    pc.enabled = enabled;
     m_platforms.append(pc);
     save();
+    emit platformsChanged();
 }
 
 void AppSettings::removePlatform(int i)
@@ -71,6 +83,7 @@ void AppSettings::removePlatform(int i)
     if (i >= 0 && i < m_platforms.size()) {
         m_platforms.removeAt(i);
         save();
+        emit platformsChanged();
     }
 }
 
@@ -81,25 +94,47 @@ PlatformConfig AppSettings::platformAt(int i) const
     return PlatformConfig();
 }
 
-QList<PlatformConfig> AppSettings::allPlatforms() const
-{
-    return m_platforms;
-}
+QList<PlatformConfig> AppSettings::allPlatforms() const { return m_platforms; }
 
 int AppSettings::autoRefreshInterval() const { return m_autoRefreshInterval; }
-void AppSettings::setAutoRefreshInterval(int minutes) { m_autoRefreshInterval = minutes; save(); }
+void AppSettings::setAutoRefreshInterval(int minutes)
+{
+    m_autoRefreshInterval = minutes;
+    save();
+    emit settingsChanged();
+}
 
 int AppSettings::widgetFontSize() const { return m_widgetFontSize; }
-void AppSettings::setWidgetFontSize(int size) { m_widgetFontSize = size; save(); }
+void AppSettings::setWidgetFontSize(int size)
+{
+    m_widgetFontSize = size;
+    save();
+    emit settingsChanged();
+}
 
 int AppSettings::widgetShowToken() const { return m_widgetShowToken; }
-void AppSettings::setWidgetShowToken(int show) { m_widgetShowToken = show; save(); }
+void AppSettings::setWidgetShowToken(int show)
+{
+    m_widgetShowToken = show;
+    save();
+    emit settingsChanged();
+}
 
 int AppSettings::widgetShowMcp() const { return m_widgetShowMcp; }
-void AppSettings::setWidgetShowMcp(int show) { m_widgetShowMcp = show; save(); }
+void AppSettings::setWidgetShowMcp(int show)
+{
+    m_widgetShowMcp = show;
+    save();
+    emit settingsChanged();
+}
 
 int AppSettings::widgetShowTime() const { return m_widgetShowTime; }
-void AppSettings::setWidgetShowTime(int show) { m_widgetShowTime = show; save(); }
+void AppSettings::setWidgetShowTime(int show)
+{
+    m_widgetShowTime = show;
+    save();
+    emit settingsChanged();
+}
 
 bool AppSettings::isConfigured() const
 {
@@ -110,15 +145,37 @@ bool AppSettings::isConfigured() const
     return false;
 }
 
+void AppSettings::cacheUsageData(const QString &json)
+{
+    QFile f(QFileInfo(m_filePath).absolutePath() + "/usage_cache.json");
+    if (f.open(QIODevice::WriteOnly)) {
+        QJsonObject root;
+        root["timestamp"] = static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+        root["data"] = QJsonDocument::fromJson(json.toUtf8()).array();
+        f.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    }
+}
+
+QString AppSettings::loadCachedUsageData() const
+{
+    QFile f(QFileInfo(m_filePath).absolutePath() + "/usage_cache.json");
+    if (!f.open(QIODevice::ReadOnly))
+        return QString();
+    return QString::fromUtf8(f.readAll());
+}
+
 void AppSettings::load()
 {
     QFile f(m_filePath);
     if (!f.open(QIODevice::ReadOnly))
         return;
 
-    QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-    QJsonObject root = doc.object();
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    if (err.error != QJsonParseError::NoError)
+        return;
 
+    QJsonObject root = doc.object();
     QJsonArray arr = root["platforms"].toArray();
     for (const QJsonValue &v : arr)
         m_platforms.append(PlatformConfig::fromJson(v.toObject()));
@@ -154,11 +211,14 @@ void AppSettings::syncWidgetConfig()
     AndroidPrefs::writeInt("widgetShowToken", m_widgetShowToken);
     AndroidPrefs::writeInt("widgetShowMcp", m_widgetShowMcp);
     AndroidPrefs::writeInt("widgetShowTime", m_widgetShowTime);
+    AndroidPrefs::writeInt("widgetFontSize", m_widgetFontSize);
 
     QJsonArray arr;
     for (const auto &p : m_platforms)
-        if (p.enabled && !p.authToken.isEmpty()) arr.append(p.toJson());
-    AndroidPrefs::write("platformConfigs", QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
+        if (p.enabled && !p.authToken.isEmpty())
+            arr.append(p.toJson());
+    AndroidPrefs::write("platformConfigs",
+                        QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
 
     AndroidPrefs::notifyWidgetUpdate();
 }
