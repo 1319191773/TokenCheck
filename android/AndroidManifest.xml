@@ -9,13 +9,13 @@
 
     <application
         android:name="org.qtproject.qt.android.bindings.QtApplication"
-        android:label="GLM Usage"
-        android:icon="@android:drawable/sym_def_app_icon">
+        android:label="TokenCheck"
+        android:icon="@mipmap/ic_launcher">
 
         <activity
             android:name="org.qtproject.qt.android.bindings.QtActivity"
             android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
-            android:label="GLM Usage"
+            android:label="TokenCheck"
             android:launchMode="singleTop"
             android:exported="true">
 
