@@ -136,6 +136,22 @@ void AppSettings::setWidgetShowTime(int show)
     emit settingsChanged();
 }
 
+int AppSettings::widgetShowBalance() const { return m_widgetShowBalance; }
+void AppSettings::setWidgetShowBalance(int show)
+{
+    m_widgetShowBalance = show;
+    save();
+    emit settingsChanged();
+}
+
+int AppSettings::widgetShowGranted() const { return m_widgetShowGranted; }
+void AppSettings::setWidgetShowGranted(int show)
+{
+    m_widgetShowGranted = show;
+    save();
+    emit settingsChanged();
+}
+
 bool AppSettings::isConfigured() const
 {
     for (const auto &p : m_platforms) {
@@ -185,6 +201,8 @@ void AppSettings::load()
     m_widgetShowToken = root["widgetShowToken"].toInt(1);
     m_widgetShowMcp = root["widgetShowMcp"].toInt(1);
     m_widgetShowTime = root["widgetShowTime"].toInt(1);
+    m_widgetShowBalance = root["widgetShowBalance"].toInt(1);
+    m_widgetShowGranted = root["widgetShowGranted"].toInt(1);
 }
 
 void AppSettings::save()
@@ -199,6 +217,8 @@ void AppSettings::save()
     root["widgetShowToken"] = m_widgetShowToken;
     root["widgetShowMcp"] = m_widgetShowMcp;
     root["widgetShowTime"] = m_widgetShowTime;
+    root["widgetShowBalance"] = m_widgetShowBalance;
+    root["widgetShowGranted"] = m_widgetShowGranted;
 
     QFile f(m_filePath);
     if (f.open(QIODevice::WriteOnly))
@@ -211,6 +231,8 @@ void AppSettings::syncWidgetConfig()
     AndroidPrefs::writeInt("widgetShowToken", m_widgetShowToken);
     AndroidPrefs::writeInt("widgetShowMcp", m_widgetShowMcp);
     AndroidPrefs::writeInt("widgetShowTime", m_widgetShowTime);
+    AndroidPrefs::writeInt("widgetShowBalance", m_widgetShowBalance);
+    AndroidPrefs::writeInt("widgetShowGranted", m_widgetShowGranted);
     AndroidPrefs::writeInt("widgetFontSize", m_widgetFontSize);
 
     QJsonArray arr;

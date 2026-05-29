@@ -16,6 +16,15 @@ Page {
         return "" + n
     }
 
+    function fmtQuotaType(type) {
+        var t = (type || "").toLowerCase()
+        if (t.indexOf("token") >= 0) return qsTr("Token 配额")
+        if (t.indexOf("time") >= 0) return qsTr("MCP 工具配额")
+        if (t.indexOf("balance_cny") >= 0) return qsTr("CNY 余额")
+        if (t.indexOf("balance_usd") >= 0) return qsTr("USD 余额")
+        return type || qsTr("配额")
+    }
+
     function fmtComma(n) {
         if (n === undefined || n === null) return "0"
         var s = "" + n
@@ -29,8 +38,6 @@ Page {
         parts.unshift(s)
         return (neg ? "-" : "") + parts.join(",")
     }
-
-    Keys.onBackPressed: root.stackView.pop()
 
     header: Rectangle {
         color: Theme.card
@@ -72,11 +79,12 @@ Page {
         anchors.fill: parent
         clip: true
         contentWidth: width
-        contentHeight: detailContent.implicitHeight + 40
+        contentHeight: bodyLayout.implicitHeight + 40
 
         ColumnLayout {
-            id: detailContent
-            anchors.fill: parent
+            id: bodyLayout
+            anchors.left: parent.left
+            anchors.right: parent.right
             anchors.margins: Theme.spacingLarge
             spacing: Theme.spacingLarge
 
@@ -144,6 +152,8 @@ Page {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingMedium
+                        visible: root.platformData
+                                 && root.platformData.platformType !== "deepseek"
                         Text {
                             text: "Token " + (root.platformData ? Theme.fmtPct(root.platformData.tokenPct) : "--")
                             font.pixelSize: Theme.fontSizeSmall
@@ -161,11 +171,26 @@ Page {
                             color: Theme.muted
                         }
                     }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMedium
+                        visible: root.platformData
+                                 && root.platformData.platformType === "deepseek"
+                                 && root.platformData.primaryBalance !== undefined
+                        Text {
+                            text: qsTr("主余额") + ": " + (root.platformData.primaryBalance || "0.00")
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.primary
+                            font.bold: true
+                        }
+                    }
                 }
             }
 
             Rectangle {
                 visible: root.platformData !== null && root.platformData !== undefined
+                         && root.platformData.platformType !== "deepseek"
                 Layout.fillWidth: true
                 radius: Theme.radiusLarge
                 color: Theme.card
@@ -269,7 +294,8 @@ Page {
                 spacing: Theme.spacingSmall
 
                 Text {
-                    text: qsTr("配额详情")
+                    text: root.platformData && root.platformData.platformType === "deepseek"
+                          ? qsTr("余额明细") : qsTr("配额详情")
                     font.pixelSize: Theme.fontSizeNormal
                     font.bold: true
                     color: Theme.text
@@ -295,11 +321,12 @@ Page {
 
                             property var q: root.platformData.quotas[modelData]
                             property bool hasDetail: q && (q.currentUsage > 0 || q.total > 0 || q.remaining > 0)
+                            property bool isBalance: q && q.type && q.type.indexOf("BALANCE") >= 0
 
                             RowLayout {
                                 Layout.fillWidth: true
                                 Text {
-                                    text: quotaCol.q ? quotaCol.q.type || qsTr("配额") : qsTr("配额")
+                                    text: quotaCol.q ? fmtQuotaType(quotaCol.q.type) : qsTr("配额")
                                     font.pixelSize: Theme.fontSizeNormal
                                     font.bold: true
                                     color: Theme.text
@@ -310,13 +337,14 @@ Page {
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.bold: true
                                     color: quotaCol.q ? Theme.pctColor(quotaCol.q.percentage) : Theme.muted
+                                    visible: !quotaCol.isBalance
                                 }
                             }
 
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingLarge
-                                visible: quotaCol.hasDetail
+                                visible: quotaCol.hasDetail && !quotaCol.isBalance
 
                                 Text {
                                     text: qsTr("已用") + ": " + fmtComma(quotaCol.q.currentUsage)
@@ -338,6 +366,29 @@ Page {
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingLarge
+                                visible: quotaCol.hasDetail && quotaCol.isBalance
+
+                                Text {
+                                    text: qsTr("总额") + ": " + (quotaCol.q.total / 100).toFixed(2)
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.text
+                                    font.bold: true
+                                }
+                                Text {
+                                    text: qsTr("赠金") + ": " + (quotaCol.q.remaining / 100).toFixed(2)
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.muted
+                                }
+                                Text {
+                                    text: qsTr("充值") + ": " + (quotaCol.q.currentUsage / 100).toFixed(2)
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.muted
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingLarge
                                 visible: !quotaCol.hasDetail && quotaCol.q
                                          && (quotaCol.q.unit > 0 || quotaCol.q.number > 0)
 
@@ -353,6 +404,7 @@ Page {
                                 height: 4
                                 radius: 2
                                 color: Theme.border
+                                visible: !quotaCol.isBalance && quotaCol.q && quotaCol.q.percentage >= 0
 
                                 Rectangle {
                                     height: 4
@@ -364,7 +416,7 @@ Page {
                             }
 
                             Text {
-                                visible: quotaCol.q && quotaCol.q.resetTime
+                                visible: !quotaCol.isBalance && quotaCol.q && quotaCol.q.resetTime
                                 text: qsTr("重置时间") + ": " + quotaCol.q.resetTime
                                 font.pixelSize: Theme.fontSizeTiny
                                 color: Theme.muted
@@ -386,6 +438,7 @@ Page {
             ColumnLayout {
                 visible: root.platformData && root.platformData.models
                          && root.platformData.models.length > 0
+                         && root.platformData.platformType !== "deepseek"
                 Layout.fillWidth: true
                 spacing: Theme.spacingSmall
 
@@ -495,6 +548,7 @@ Page {
             ColumnLayout {
                 visible: root.platformData && root.platformData.toolNames
                          && root.platformData.toolNames.length > 0
+                         && root.platformData.platformType !== "deepseek"
                 Layout.fillWidth: true
                 spacing: Theme.spacingSmall
 

@@ -30,6 +30,7 @@ ApplicationWindow {
     function extractPlatformInfo(data) {
         var d = {
             "name": data.platformName,
+            "platformType": data.platformType,
             "tokenPct": data.tokenPercentage(),
             "mcpPct": data.mcpPercentage(),
             "resetTime": data.tokenResetTime(),
@@ -85,6 +86,22 @@ ApplicationWindow {
             totalToolCalls += d.toolCalls[c]
         d.totalToolCalls = totalToolCalls
 
+        d.primaryBalance = ""
+        if (d.platformType === "deepseek") {
+            for (var qi = 0; qi < d.quotas.length; qi++) {
+                var q = d.quotas[qi]
+                if (q.type === "BALANCE_CNY" && q.total > 0) {
+                    d.primaryBalance = "CNY " + (q.total / 100).toFixed(2)
+                    break
+                }
+            }
+            if (!d.primaryBalance && d.quotas.length > 0) {
+                var first = d.quotas[0]
+                var cur = first.type.replace("BALANCE_", "")
+                d.primaryBalance = cur + " " + (first.total / 100).toFixed(2)
+            }
+        }
+
         return d
     }
 
@@ -109,6 +126,7 @@ ApplicationWindow {
                     var d = arr[i]
                     platformData.push({
                         "name": d.platformName || "",
+                        "platformType": d.platformType || "glm",
                         "tokenPct": d.tokenPct !== undefined ? d.tokenPct : -1,
                         "mcpPct": d.mcpPct !== undefined ? d.mcpPct : -1,
                         "resetTime": d.resetTime || "",
@@ -122,6 +140,7 @@ ApplicationWindow {
                         "modelReq": (d.models || []).map(function(m) { return m.requests }),
                         "toolNames": (d.tools || []).map(function(t) { return t.name }),
                         "toolCalls": (d.tools || []).map(function(t) { return t.calls }),
+                        "primaryBalance": "",
                         "quotas": (d.quotas || []).map(function(q) {
                             return {
                                 "type": q.type || "",
@@ -137,6 +156,23 @@ ApplicationWindow {
                         })
                     })
                 }
+                for (var ci = 0; ci < platformData.length; ci++) {
+                    var pd = platformData[ci]
+                    if (pd.platformType === "deepseek" && !pd.primaryBalance) {
+                        for (var di = 0; di < pd.quotas.length; di++) {
+                            var dq = pd.quotas[di]
+                            if (dq.type === "BALANCE_CNY" && dq.total > 0) {
+                                pd.primaryBalance = "CNY " + (dq.total / 100).toFixed(2)
+                                break
+                            }
+                        }
+                        if (!pd.primaryBalance && pd.quotas.length > 0) {
+                            var fq = pd.quotas[0]
+                            var fcur = fq.type.replace("BALANCE_", "")
+                            pd.primaryBalance = fcur + " " + (fq.total / 100).toFixed(2)
+                        }
+                    }
+                }
                 platformDataChanged()
             } catch(e) {}
         }
@@ -150,6 +186,16 @@ ApplicationWindow {
         id: sv
         anchors.fill: parent
         initialItem: mainContentComp
+        focus: true
+
+        Keys.onBackPressed: function(event) {
+            if (sv.depth > 1) {
+                sv.pop()
+            } else {
+                Qt.quit()
+            }
+            event.accepted = true
+        }
 
         pushEnter: Transition {
             NumberAnimation {

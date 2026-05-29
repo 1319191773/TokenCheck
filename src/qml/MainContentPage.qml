@@ -17,12 +17,21 @@ Page {
 
     property real pullProgress: 0
     property bool pullTriggered: false
+    property bool refreshSuccess: false
+    property bool refreshFromButton: false
 
-    Keys.onBackPressed: {
-        if (root.stackView.depth > 1)
-            root.stackView.pop()
-        else
-            Qt.quit()
+    onIsRefreshingChanged: {
+        if (!isRefreshing && refreshFromButton) {
+            refreshSuccess = true
+            refreshFromButton = false
+            successTimer.start()
+        }
+    }
+
+    Timer {
+        id: successTimer
+        interval: 1200
+        onTriggered: root.refreshSuccess = false
     }
 
     header: Rectangle {
@@ -39,7 +48,7 @@ Page {
                 spacing: 2
                 Layout.fillWidth: true
                 Text {
-                    text: "GLM Usage"
+                    text: "TokenCheck"
                     font.pixelSize: Theme.fontSizeTitle
                     font.bold: true
                     color: Theme.text
@@ -75,27 +84,6 @@ Page {
         anchors.fill: parent
         spacing: 0
 
-        Rectangle {
-            Layout.fillWidth: true
-            height: 40
-            color: Theme.card
-            border.width: 1
-            border.color: Theme.border
-            visible: root.isRefreshing
-
-            RowLayout {
-                anchors.centerIn: parent
-                spacing: Theme.spacingSmall
-                BusyIndicator { width: 18; height: 18; running: root.isRefreshing }
-                Text {
-                    text: qsTr("同步数据中...")
-                    color: Theme.primary
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.bold: true
-                }
-            }
-        }
-
         Flickable {
             id: flick
             Layout.fillWidth: true
@@ -129,20 +117,43 @@ Page {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: root.isRefreshing ? 40 : (pullProgress > 0 ? pullProgress * 40 : 0)
+                    height: root.isRefreshing ? 44 : (pullProgress > 0 ? pullProgress * 44 : 0)
                     color: Theme.card
                     visible: height > 0
                     clip: true
 
-                    Behavior on height { NumberAnimation { duration: 150 } }
+                    Behavior on height {
+                        NumberAnimation {
+                            duration: 300
+                            easing.type: Easing.OutCubic
+                        }
+                    }
 
                     RowLayout {
                         anchors.centerIn: parent
                         spacing: Theme.spacingSmall
+
                         Text {
-                            text: root.isRefreshing ? "\u21BB" : (pullProgress >= 1.0 ? "\u2714" : "\u21BB")
-                            font.pixelSize: 16
+                            id: pullArrow
+                            text: root.isRefreshing ? "\u21BB" : "\u25BC"
+                            font.pixelSize: 14
                             color: root.isRefreshing ? Theme.primary : (pullProgress >= 1.0 ? Theme.ok : Theme.muted)
+                            scale: pullProgress > 0 && !root.isRefreshing
+                                   ? 0.6 + Math.min(pullProgress, 1.0) * 0.4 : 1.0
+
+                            Behavior on scale {
+                                NumberAnimation { duration: 100 }
+                            }
+
+                            rotation: {
+                                if (root.isRefreshing) return 0
+                                if (pullProgress >= 1.0) return 180
+                                return 0
+                            }
+
+                            Behavior on rotation {
+                                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                            }
 
                             RotationAnimation on rotation {
                                 running: root.isRefreshing
@@ -151,11 +162,12 @@ Page {
                                 loops: Animation.Infinite
                             }
                         }
+
                         Text {
                             text: root.isRefreshing ? qsTr("刷新中...")
                                    : (pullProgress >= 1.0 ? qsTr("松开刷新") : qsTr("下拉刷新"))
                             font.pixelSize: Theme.fontSizeSmall
-                            color: root.isRefreshing ? Theme.primary : Theme.muted
+                            color: root.isRefreshing ? Theme.primary : (pullProgress >= 1.0 ? Theme.ok : Theme.muted)
                         }
                     }
                 }
@@ -287,6 +299,7 @@ Page {
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: Theme.spacingTiny
+                                    visible: modelData.platformType !== "deepseek"
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Text {
@@ -319,6 +332,7 @@ Page {
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: Theme.spacingTiny
+                                    visible: modelData.platformType !== "deepseek"
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Text {
@@ -348,6 +362,23 @@ Page {
                                     }
                                 }
 
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: modelData.platformType === "deepseek"
+                                    Text {
+                                        text: qsTr("余额")
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: Theme.muted
+                                    }
+                                    Text {
+                                        text: modelData.primaryBalance || "--"
+                                        font.pixelSize: Theme.fontSizeNormal
+                                        font.bold: true
+                                        color: Theme.primary
+                                        Layout.fillWidth: true
+                                    }
+                                }
+
                                 Rectangle {
                                     Layout.fillWidth: true
                                     height: 1
@@ -357,7 +388,9 @@ Page {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Text {
-                                        text: qsTr("重置") + " " + (modelData.resetTime || "--")
+                                        text: modelData.platformType === "deepseek"
+                                               ? qsTr("查看详情")
+                                               : (qsTr("重置") + " " + (modelData.resetTime || "--"))
                                         font.pixelSize: Theme.fontSizeSmall
                                         color: Theme.muted
                                         Layout.fillWidth: true
@@ -381,7 +414,7 @@ Page {
 
         Rectangle {
             Layout.fillWidth: true
-            height: 90
+            height: 80
             color: Theme.card
             border.width: 1
             border.color: Theme.border
@@ -390,26 +423,39 @@ Page {
                 id: btnRefresh
                 anchors.centerIn: parent
                 width: parent.width - 40
-                height: 50
-                enabled: !root.isRefreshing
+                height: 48
+
+                property bool pressAnim: false
 
                 background: Rectangle {
                     radius: Theme.radiusMedium
-                    color: parent.enabled
-                        ? (parent.down ? Qt.darker(Theme.primary, 1.1) : Theme.primary)
-                        : Theme.primaryLight
+                    color: root.refreshSuccess ? Theme.ok
+                           : (root.isRefreshing ? Theme.primaryLight
+                              : (btnRefresh.down ? Qt.darker(Theme.primary, 1.1) : Theme.primary))
+
+                    Behavior on color {
+                        ColorAnimation { duration: 300 }
+                    }
+
+                    scale: btnRefresh.pressAnim ? 0.96 : 1.0
+
+                    Behavior on scale {
+                        NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
+                    }
                 }
 
                 contentItem: Item {
                     RowLayout {
                         anchors.centerIn: parent
                         spacing: Theme.spacingSmall
+
                         Text {
                             id: refreshIcon
-                            text: "\u21BB"
+                            text: root.isRefreshing ? "\u21BB" : "\u21BB"
                             font.pixelSize: 20
                             font.bold: true
                             color: Theme.white
+                            rotation: root.isRefreshing ? refreshIcon.rotation : 0
 
                             RotationAnimation on rotation {
                                 running: root.isRefreshing
@@ -417,9 +463,16 @@ Page {
                                 duration: 800
                                 loops: Animation.Infinite
                             }
+
+                            Behavior on text {
+                                enabled: false
+                            }
                         }
+
                         Text {
-                            text: root.isRefreshing ? qsTr("查询中...") : qsTr("立即刷新")
+                            id: refreshLabel
+                            text: root.refreshSuccess ? qsTr("刷新成功")
+                                   : (root.isRefreshing ? qsTr("查询中...") : qsTr("立即刷新"))
                             font.pixelSize: Theme.fontSizeMedium
                             font.bold: true
                             color: Theme.white
@@ -427,7 +480,13 @@ Page {
                     }
                 }
 
-                onClicked: root.refreshRequested()
+                onPressed: pressAnim = true
+                onReleased: pressAnim = false
+                onCanceled: pressAnim = false
+                onClicked: {
+                    refreshFromButton = true
+                    root.refreshRequested()
+                }
             }
         }
     }

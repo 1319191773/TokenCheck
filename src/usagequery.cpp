@@ -94,10 +94,21 @@ void UsageQuery::query()
     m_querying = true;
 
     for (const auto &cfg : enabled) {
-        m_active.append(new PlatformQuery{cfg, 3, 0, UsageData()});
+        QString ptype = detectPlatformType(cfg.baseUrl);
+        int pending = (ptype == "deepseek") ? 1 : 3;
+        m_active.append(new PlatformQuery{cfg, pending, 0, UsageData()});
         m_active.last()->data.platformName = cfg.name;
+        m_active.last()->data.platformType = ptype;
     }
     queryAllPlatforms();
+}
+
+QString UsageQuery::detectPlatformType(const QString &baseUrl)
+{
+    QString lower = baseUrl.toLower();
+    if (lower.contains("deepseek"))
+        return "deepseek";
+    return "glm";
 }
 
 void UsageQuery::queryAllPlatforms()
@@ -109,12 +120,17 @@ void UsageQuery::queryAllPlatforms()
                                      QUrl::toPercentEncoding(now.toString("yyyy-MM-dd HH:mm:ss")));
 
     for (auto *pq : m_active) {
-        sendRequest(pq, pq->config.apiPrefix + "/model-usage", timeQuery,
-                    [this](PlatformQuery *p, QNetworkReply *r) { onModelUsageReply(p, r); });
-        sendRequest(pq, pq->config.apiPrefix + "/tool-usage", timeQuery,
-                    [this](PlatformQuery *p, QNetworkReply *r) { onToolUsageReply(p, r); });
-        sendRequest(pq, pq->config.apiPrefix + "/quota/limit", "",
-                    [this](PlatformQuery *p, QNetworkReply *r) { onQuotaLimitReply(p, r); });
+        if (pq->data.platformType == "deepseek") {
+            sendRequest(pq, "/user/balance", "",
+                        [this](PlatformQuery *p, QNetworkReply *r) { onBalanceReply(p, r); });
+        } else {
+            sendRequest(pq, pq->config.apiPrefix + "/model-usage", timeQuery,
+                        [this](PlatformQuery *p, QNetworkReply *r) { onModelUsageReply(p, r); });
+            sendRequest(pq, pq->config.apiPrefix + "/tool-usage", timeQuery,
+                        [this](PlatformQuery *p, QNetworkReply *r) { onToolUsageReply(p, r); });
+            sendRequest(pq, pq->config.apiPrefix + "/quota/limit", "",
+                        [this](PlatformQuery *p, QNetworkReply *r) { onQuotaLimitReply(p, r); });
+        }
     }
 }
 
@@ -124,7 +140,10 @@ void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QStri
 {
     QUrl url(pq->config.baseUrl + path + query);
     QNetworkRequest request(url);
-    request.setRawHeader("Authorization", pq->config.authToken.toUtf8());
+    QByteArray authHeader = pq->config.authToken.toUtf8();
+    if (pq->data.platformType == "deepseek" && !authHeader.startsWith("Bearer "))
+        authHeader = "Bearer " + authHeader;
+    request.setRawHeader("Authorization", authHeader);
     request.setRawHeader("Accept-Language", "en-US,en");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setTransferTimeout(15000);
@@ -264,6 +283,29 @@ void UsageQuery::onQuotaLimitReply(PlatformQuery *pq, QNetworkReply *reply)
     platformDone(pq);
 }
 
+void UsageQuery::onBalanceReply(PlatformQuery *pq, QNetworkReply *reply)
+{
+    QJsonObject root = parseJsonReply(reply, "balance");
+    if (!root.isEmpty() && root.contains("balance_infos")) {
+        QJsonArray infos = root.value("balance_infos").toArray();
+        bool isAvailable = root.value("is_available").toBool();
+        for (int i = 0; i < infos.size(); i++) {
+            QJsonObject info = infos[i].toObject();
+            QString currency = info.value("currency").toString("USD");
+            QuotaLimitItem item;
+            item.type = "BALANCE_" + currency.toUpper();
+            item.percentage = -1.0;
+            item.total = static_cast<qint64>(info.value("total_balance").toString("0").toDouble() * 100);
+            item.remaining = static_cast<qint64>(info.value("granted_balance").toString("0").toDouble() * 100);
+            item.currentUsage = static_cast<qint64>(info.value("topped_up_balance").toString("0").toDouble() * 100);
+            item.unit = isAvailable ? 1 : 0;
+            pq->data.quotaLimits.append(item);
+        }
+        pq->success++;
+    }
+    platformDone(pq);
+}
+
 void UsageQuery::platformDone(PlatformQuery *pq)
 {
     pq->pending--;
@@ -313,6 +355,7 @@ QJsonObject UsageQuery::usageDataToJson(const UsageData &data)
 {
     QJsonObject obj;
     obj["platformName"] = data.platformName;
+    obj["platformType"] = data.platformType;
     obj["isValid"] = data.isValid;
     obj["errorMsg"] = data.errorMsg;
 

@@ -13,31 +13,41 @@ public class WidgetDataStore {
             synchronized (lock) {
                 if (prefs == null) {
                     prefs = context.getApplicationContext()
-                            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                            .getSharedPreferences(PREFS_NAME, Context.MODE_MULTI_PROCESS);
                 }
             }
         }
     }
 
     public static void forceReload(Context context) {
-        init(context);
+        synchronized (lock) {
+            prefs = context.getApplicationContext()
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_MULTI_PROCESS);
+        }
     }
 
     public static class PlatformInfo {
         public String name;
+        public String type;
         public double tokenPct;
         public double mcpPct;
         public String resetTime;
-        public PlatformInfo(String n, double t, double m, String r) {
+        public String balance;
+        public String granted;
+        public PlatformInfo(String n, String t, double tk, double m, String r, String b, String g) {
             name = n != null ? n : "";
-            tokenPct = t;
+            type = t != null ? t : "glm";
+            tokenPct = tk;
             mcpPct = m;
             resetTime = r != null ? r : "";
+            balance = b != null ? b : "";
+            granted = g != null ? g : "";
         }
     }
 
     public static class WidgetData {
         public int widgetShowToken, widgetShowMcp, widgetShowTime, widgetFontSize;
+        public int widgetShowBalance, widgetShowGranted;
         public int platformCount, currentPlatform;
         public PlatformInfo[] platforms;
         public WidgetData() { platforms = new PlatformInfo[0]; }
@@ -51,6 +61,8 @@ public class WidgetDataStore {
             d.widgetShowToken = parseIntSafe(prefs.getString("widgetShowToken", "1"));
             d.widgetShowMcp = parseIntSafe(prefs.getString("widgetShowMcp", "1"));
             d.widgetShowTime = parseIntSafe(prefs.getString("widgetShowTime", "1"));
+            d.widgetShowBalance = parseIntSafe(prefs.getString("widgetShowBalance", "1"));
+            d.widgetShowGranted = parseIntSafe(prefs.getString("widgetShowGranted", "1"));
             d.widgetFontSize = parseIntSafe(prefs.getString("widgetFontSize", "14"));
             d.platformCount = parseIntSafe(prefs.getString("platformCount", "0"));
             d.currentPlatform = parseIntSafe(prefs.getString("currentPlatform", "0"));
@@ -60,9 +72,12 @@ public class WidgetDataStore {
                 String prefix = "p" + i + "_";
                 d.platforms[i] = new PlatformInfo(
                     prefs.getString(prefix + "name", ""),
+                    prefs.getString(prefix + "type", "glm"),
                     parseDoubleSafe(prefs.getString(prefix + "token", "-1.0")),
                     parseDoubleSafe(prefs.getString(prefix + "mcp", "-1.0")),
-                    prefs.getString(prefix + "time", "")
+                    prefs.getString(prefix + "time", ""),
+                    prefs.getString(prefix + "balance", ""),
+                    prefs.getString(prefix + "granted", "")
                 );
             }
         }

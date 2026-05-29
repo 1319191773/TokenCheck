@@ -12,6 +12,8 @@ Page {
     property int sT: appSettings.widgetShowToken()
     property int sM: appSettings.widgetShowMcp()
     property int sTm: appSettings.widgetShowTime()
+    property int sB: appSettings.widgetShowBalance()
+    property int sG: appSettings.widgetShowGranted()
 
     ListModel {
         id: platformListModel
@@ -34,8 +36,6 @@ Page {
         target: appSettings
         function onPlatformsChanged() { platformListModel.reloadPlatforms() }
     }
-
-    Keys.onBackPressed: root.stackView.pop()
 
     header: Rectangle {
         color: Theme.card
@@ -165,7 +165,7 @@ Page {
                                 id: pCombo
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 44
-                                model: [qsTr("智谱 ZAI"), qsTr("智谱 ZHIPU"), qsTr("自定义")]
+                                model: [qsTr("智谱 GLM"), qsTr("DeepSeek"), qsTr("自定义")]
                                 background: Rectangle {
                                     color: Theme.itemBg
                                     border.width: 1
@@ -194,6 +194,50 @@ Page {
                                 }
                             }
 
+                            Text {
+                                text: qsTr("API 基地址")
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.muted
+                                visible: pCombo.currentIndex === 2
+                            }
+
+                            TextField {
+                                id: urlField
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 44
+                                visible: pCombo.currentIndex === 2
+                                text: "https://open.bigmodel.cn"
+                                color: Theme.text
+                                background: Rectangle {
+                                    color: Theme.itemBg
+                                    border.width: 1
+                                    border.color: Theme.border
+                                    radius: Theme.radiusSmall
+                                }
+                            }
+
+                            Text {
+                                text: qsTr("API 前缀")
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.muted
+                                visible: pCombo.currentIndex === 2
+                            }
+
+                            TextField {
+                                id: prefixField
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 44
+                                visible: pCombo.currentIndex === 2
+                                text: "/api/monitor/usage"
+                                color: Theme.text
+                                background: Rectangle {
+                                    color: Theme.itemBg
+                                    border.width: 1
+                                    border.color: Theme.border
+                                    radius: Theme.radiusSmall
+                                }
+                            }
+
                             Button {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 44
@@ -208,10 +252,17 @@ Page {
                                 }
                                 onClicked: {
                                     if (tField.text.length < 5) return
-                                    var n = pCombo.currentIndex === 0 ? "ZAI"
-                                          : pCombo.currentIndex === 1 ? "ZHIPU" : "Custom"
-                                    appSettings.addPlatform(n, "https://open.bigmodel.cn",
-                                                            tField.text, "/api/monitor/usage")
+                                    if (pCombo.currentIndex === 0) {
+                                        appSettings.addPlatform("智谱 GLM", "https://open.bigmodel.cn",
+                                                                tField.text, "/api/monitor/usage")
+                                    } else if (pCombo.currentIndex === 1) {
+                                        appSettings.addPlatform("DeepSeek", "https://api.deepseek.com",
+                                                                tField.text, "")
+                                    } else {
+                                        if (urlField.text.length < 5) return
+                                        appSettings.addPlatform("自定义", urlField.text,
+                                                                tField.text, prefixField.text)
+                                    }
                                     tField.text = ""
                                     usageQuery.query()
                                 }
@@ -247,11 +298,38 @@ Page {
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 2
-                                        Text {
-                                            text: model.pName
-                                            font.pixelSize: Theme.fontSizeNormal
-                                            font.bold: true
-                                            color: Theme.text
+                                        RowLayout {
+                                            spacing: 6
+                                            Text {
+                                                text: model.pName
+                                                font.pixelSize: Theme.fontSizeNormal
+                                                font.bold: true
+                                                color: Theme.text
+                                            }
+                                            Rectangle {
+                                                visible: model.pUrl
+                                                radius: 4
+                                                implicitHeight: 16
+                                                implicitWidth: typeTag.implicitWidth + 10
+                                                color: {
+                                                    var u = (model.pUrl || "").toLowerCase()
+                                                    return u.indexOf("deepseek") >= 0 ? "#E0F2FE" : Theme.okLight
+                                                }
+                                                Text {
+                                                    id: typeTag
+                                                    anchors.centerIn: parent
+                                                    text: {
+                                                        var u = (model.pUrl || "").toLowerCase()
+                                                        return u.indexOf("deepseek") >= 0 ? "DeepSeek" : "GLM"
+                                                    }
+                                                    font.pixelSize: Theme.fontSizeTiny - 1
+                                                    font.bold: true
+                                                    color: {
+                                                        var u = (model.pUrl || "").toLowerCase()
+                                                        return u.indexOf("deepseek") >= 0 ? "#0284C7" : Theme.ok
+                                                    }
+                                                }
+                                            }
                                         }
                                         Text {
                                             text: model.pUrl
@@ -334,14 +412,17 @@ Page {
                                     color: Theme.text
                                 }
                                 Rectangle {
-                                    color: Theme.itemBg
-                                    radius: 10
-                                    width: 60; height: 20
+                                    color: Theme.okLight
+                                    radius: 4
+                                    implicitWidth: glmTag.implicitWidth + 10
+                                    implicitHeight: 18
                                     Text {
+                                        id: glmTag
                                         anchors.centerIn: parent
-                                        text: qsTr("示例")
-                                        font.pixelSize: Theme.fontSizeTiny
-                                        color: Theme.muted
+                                        text: "GLM " + qsTr("示例")
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: Theme.ok
                                     }
                                 }
                             }
@@ -432,6 +513,20 @@ Page {
                                 Layout.preferredHeight: 60
                                 Layout.leftMargin: 16
                                 Layout.rightMargin: 16
+                                Rectangle {
+                                    radius: 4
+                                    implicitHeight: 18
+                                    implicitWidth: stLbl.implicitWidth + 10
+                                    color: Theme.okLight
+                                    Text {
+                                        id: stLbl
+                                        anchors.centerIn: parent
+                                        text: "GLM"
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: Theme.ok
+                                    }
+                                }
                                 Text {
                                     text: qsTr("显示 Token 百分比")
                                     font.pixelSize: Theme.fontSizeNormal
@@ -460,6 +555,20 @@ Page {
                                 Layout.preferredHeight: 60
                                 Layout.leftMargin: 16
                                 Layout.rightMargin: 16
+                                Rectangle {
+                                    radius: 4
+                                    implicitHeight: 18
+                                    implicitWidth: smLbl.implicitWidth + 10
+                                    color: Theme.okLight
+                                    Text {
+                                        id: smLbl
+                                        anchors.centerIn: parent
+                                        text: "GLM"
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: Theme.ok
+                                    }
+                                }
                                 Text {
                                     text: qsTr("显示 MCP 百分比")
                                     font.pixelSize: Theme.fontSizeNormal
@@ -488,6 +597,20 @@ Page {
                                 Layout.preferredHeight: 60
                                 Layout.leftMargin: 16
                                 Layout.rightMargin: 16
+                                Rectangle {
+                                    radius: 4
+                                    implicitHeight: 18
+                                    implicitWidth: stmLbl.implicitWidth + 10
+                                    color: Theme.okLight
+                                    Text {
+                                        id: stmLbl
+                                        anchors.centerIn: parent
+                                        text: "GLM"
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: Theme.ok
+                                    }
+                                }
                                 Text {
                                     text: qsTr("显示重置时间")
                                     font.pixelSize: Theme.fontSizeNormal
@@ -507,6 +630,90 @@ Page {
                                         Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
                                     }
                                     MouseArea { anchors.fill: parent; onClicked: root.sTm = root.sTm === 1 ? 0 : 1 }
+                                }
+                            }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 60
+                                Layout.leftMargin: 16
+                                Layout.rightMargin: 16
+                                Rectangle {
+                                    radius: 4
+                                    implicitHeight: 18
+                                    implicitWidth: sbLbl.implicitWidth + 10
+                                    color: "#E0F2FE"
+                                    Text {
+                                        id: sbLbl
+                                        anchors.centerIn: parent
+                                        text: "DeepSeek"
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: "#0284C7"
+                                    }
+                                }
+                                Text {
+                                    text: qsTr("显示主余额")
+                                    font.pixelSize: Theme.fontSizeNormal
+                                    color: Theme.text
+                                    Layout.fillWidth: true
+                                }
+                                Rectangle {
+                                    radius: 12
+                                    width: 44; height: 24
+                                    color: root.sB === 1 ? Theme.primary : Theme.border
+                                    Rectangle {
+                                        radius: 10
+                                        width: 20; height: 20
+                                        color: Theme.white
+                                        y: 2
+                                        x: root.sB === 1 ? 22 : 2
+                                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                                    }
+                                    MouseArea { anchors.fill: parent; onClicked: root.sB = root.sB === 1 ? 0 : 1 }
+                                }
+                            }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 60
+                                Layout.leftMargin: 16
+                                Layout.rightMargin: 16
+                                Rectangle {
+                                    radius: 4
+                                    implicitHeight: 18
+                                    implicitWidth: sgLbl.implicitWidth + 10
+                                    color: "#E0F2FE"
+                                    Text {
+                                        id: sgLbl
+                                        anchors.centerIn: parent
+                                        text: "DeepSeek"
+                                        font.pixelSize: Theme.fontSizeTiny - 1
+                                        font.bold: true
+                                        color: "#0284C7"
+                                    }
+                                }
+                                Text {
+                                    text: qsTr("显示赠金余额")
+                                    font.pixelSize: Theme.fontSizeNormal
+                                    color: Theme.text
+                                    Layout.fillWidth: true
+                                }
+                                Rectangle {
+                                    radius: 12
+                                    width: 44; height: 24
+                                    color: root.sG === 1 ? Theme.primary : Theme.border
+                                    Rectangle {
+                                        radius: 10
+                                        width: 20; height: 20
+                                        color: Theme.white
+                                        y: 2
+                                        x: root.sG === 1 ? 22 : 2
+                                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                                    }
+                                    MouseArea { anchors.fill: parent; onClicked: root.sG = root.sG === 1 ? 0 : 1 }
                                 }
                             }
                             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
@@ -555,6 +762,8 @@ Page {
                             appSettings.setWidgetShowToken(root.sT)
                             appSettings.setWidgetShowMcp(root.sM)
                             appSettings.setWidgetShowTime(root.sTm)
+                            appSettings.setWidgetShowBalance(root.sB)
+                            appSettings.setWidgetShowGranted(root.sG)
                             appSettings.setAutoRefreshInterval(root.interval)
                             appSettings.syncWidgetConfig()
                             if (root.interval > 0)

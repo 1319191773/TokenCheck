@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
                      Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/src/qml/MainPage.qml")));
 
+    AppSettings::instance().syncWidgetConfig();
+
     if (refreshOnly || AppSettings::instance().isConfigured())
         query.query();
 

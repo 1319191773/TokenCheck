@@ -17,7 +17,11 @@ Page {
     property bool tokenHidden: true
     property string realToken: root.editToken
 
-    Keys.onBackPressed: root.stackView.pop()
+    function maskToken(token) {
+        if (token.length === 0) return ""
+        if (token.length <= 8) return "\u2022".repeat(token.length)
+        return token.substring(0, 4) + "\u2022".repeat(token.length - 8) + token.substring(token.length - 4)
+    }
 
     header: Rectangle {
         color: Theme.card
@@ -66,6 +70,67 @@ Page {
             anchors.fill: parent
             anchors.margins: Theme.spacingLarge
             spacing: Theme.spacingLarge
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                visible: root.editIndex < 0
+                Label {
+                    text: qsTr("快速选择")
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSmall
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        text: qsTr("智谱 GLM")
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.primary
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: Theme.white
+                            font.pixelSize: Theme.fontSizeSmall
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            nameField.text = "智谱 GLM"
+                            urlField.text = "https://open.bigmodel.cn"
+                            prefixField.text = "/api/monitor/usage"
+                        }
+                    }
+                    Button {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        text: "DeepSeek"
+                        background: Rectangle {
+                            radius: Theme.radiusSmall
+                            color: Theme.itemBg
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSizeSmall
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            nameField.text = "DeepSeek"
+                            urlField.text = "https://api.deepseek.com"
+                            prefixField.text = ""
+                        }
+                    }
+                }
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -242,11 +307,5 @@ Page {
         }
 
         ScrollBar.vertical: ScrollBar {}
-    }
-
-    function maskToken(token) {
-        if (token.length === 0) return ""
-        if (token.length <= 8) return "\u2022".repeat(token.length)
-        return token.substring(0, 4) + "\u2022".repeat(token.length - 8) + token.substring(token.length - 4)
     }
 }

@@ -51,9 +51,11 @@ public:
     Q_PROPERTY(bool isValid MEMBER isValid)
     Q_PROPERTY(QString errorMsg MEMBER errorMsg)
     Q_PROPERTY(QString platformName MEMBER platformName)
+    Q_PROPERTY(QString platformType MEMBER platformType)
     bool isValid = false;
     QString errorMsg;
     QString platformName;
+    QString platformType;
 
     Q_INVOKABLE double tokenPercentage() const;
     Q_INVOKABLE double mcpPercentage() const;
@@ -173,10 +175,12 @@ private:
     void onModelUsageReply(PlatformQuery *pq, QNetworkReply *reply);
     void onToolUsageReply(PlatformQuery *pq, QNetworkReply *reply);
     void onQuotaLimitReply(PlatformQuery *pq, QNetworkReply *reply);
+    void onBalanceReply(PlatformQuery *pq, QNetworkReply *reply);
     void platformDone(PlatformQuery *pq);
     QString parseUsageDetails(const QJsonValue &val);
     QJsonObject parseJsonReply(QNetworkReply *reply, const QString &context);
     static QJsonObject usageDataToJson(const UsageData &data);
+    static QString detectPlatformType(const QString &baseUrl);
 
     QNetworkAccessManager *m_manager;
     QTimer *m_timer;

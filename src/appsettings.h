@@ -41,6 +41,10 @@ public:
     Q_INVOKABLE void setWidgetShowMcp(int show);
     Q_INVOKABLE int widgetShowTime() const;
     Q_INVOKABLE void setWidgetShowTime(int show);
+    Q_INVOKABLE int widgetShowBalance() const;
+    Q_INVOKABLE void setWidgetShowBalance(int show);
+    Q_INVOKABLE int widgetShowGranted() const;
+    Q_INVOKABLE void setWidgetShowGranted(int show);
 
     Q_INVOKABLE void syncWidgetConfig();
 
@@ -64,6 +68,8 @@ private:
     int m_widgetShowToken = 1;
     int m_widgetShowMcp = 1;
     int m_widgetShowTime = 1;
+    int m_widgetShowBalance = 1;
+    int m_widgetShowGranted = 1;
     QString m_filePath;
 };
 
