@@ -83,50 +83,30 @@ Page {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Theme.spacingSmall
-                    Button {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        text: qsTr("智谱 GLM")
-                        background: Rectangle {
-                            radius: Theme.radiusSmall
-                            color: Theme.primary
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: Theme.white
-                            font.pixelSize: Theme.fontSizeSmall
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        onClicked: {
-                            nameField.text = "智谱 GLM"
-                            urlField.text = "https://open.bigmodel.cn"
-                            prefixField.text = "/api/monitor/usage"
-                        }
-                    }
-                    Button {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        text: "DeepSeek"
-                        background: Rectangle {
-                            radius: Theme.radiusSmall
-                            color: Theme.itemBg
-                            border.width: 1
-                            border.color: Theme.border
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSizeSmall
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        onClicked: {
-                            nameField.text = "DeepSeek"
-                            urlField.text = "https://api.deepseek.com"
-                            prefixField.text = ""
+                    Repeater {
+                        model: platformRegistry.allTypes()
+                        Button {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 40
+                            text: platformRegistry.displayName(modelData)
+                            background: Rectangle {
+                                radius: Theme.radiusSmall
+                                color: index === 0 ? Theme.primary : Theme.itemBg
+                                border.width: 1
+                                border.color: Theme.border
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                color: index === 0 ? Theme.white : Theme.text
+                                font.pixelSize: Theme.fontSizeSmall
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: {
+                                nameField.text = text
+                                urlField.text = platformRegistry.defaultBaseUrl(modelData)
+                                prefixField.text = platformRegistry.defaultApiPrefix(modelData)
+                            }
                         }
                     }
                 }

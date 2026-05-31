@@ -17,14 +17,17 @@ public:
     Q_INVOKABLE int platformCount() const;
     Q_INVOKABLE QString platformName(int index) const;
     Q_INVOKABLE QString platformBaseUrl(int index) const;
+    Q_INVOKABLE QString platformType(int index) const;
     Q_INVOKABLE QString platformAuthToken(int index) const;
     Q_INVOKABLE QString platformApiPrefix(int index) const;
     Q_INVOKABLE bool platformEnabled(int index) const;
     Q_INVOKABLE void setPlatform(int index, const QString &name, const QString &baseUrl,
-                                  const QString &token, const QString &apiPrefix, bool enabled);
+                                  const QString &token, const QString &apiPrefix, bool enabled,
+                                  const QString &platformType = QString());
     Q_INVOKABLE void addPlatform(const QString &name, const QString &baseUrl,
                                   const QString &token, const QString &apiPrefix,
-                                  bool enabled = true);
+                                  bool enabled = true,
+                                  const QString &platformType = QString());
     Q_INVOKABLE void removePlatform(int index);
     PlatformConfig platformAt(int index) const;
     QList<PlatformConfig> allPlatforms() const;

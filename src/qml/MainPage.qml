@@ -113,6 +113,23 @@ ApplicationWindow {
         function onQueryAllFinished() {
             isRefreshing = false
             lastError = ""
+            var ordered = []
+            var count = appSettings.platformCount()
+            for (var i = 0; i < count; i++) {
+                var n = appSettings.platformName(i)
+                for (var j = 0; j < platformData.length; j++) {
+                    if (platformData[j].name === n) {
+                        ordered.push(platformData[j])
+                        break
+                    }
+                }
+            }
+            if (ordered.length > 0) {
+                Qt.callLater(function() {
+                    platformData = ordered
+                    platformDataChanged()
+                })
+            }
         }
         function onQueryFailed(error) {
             isRefreshing = false

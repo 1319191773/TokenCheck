@@ -19,6 +19,9 @@ qt_add_executable(easyGlmUsage
     src/appsettings.cpp
     src/widgetbridge.cpp
     src/androidprefs.cpp
+    src/platform_registry.cpp
+    src/platforms/glm/glm_handler.cpp
+    src/platforms/deepseek/deepseek_handler.cpp
 )
 
 qt_add_resources(easyGlmUsage "qml_files"
@@ -31,6 +34,12 @@ qt_add_resources(easyGlmUsage "qml_files"
         src/qml/DetailPage.qml
         src/qml/SettingsPage.qml
         src/qml/PlatformEditPage.qml
+        src/platforms/glm/qml/qmldir
+        src/platforms/glm/qml/GlmCard.qml
+        src/platforms/glm/qml/GlmDetail.qml
+        src/platforms/deepseek/qml/qmldir
+        src/platforms/deepseek/qml/DeepSeekCard.qml
+        src/platforms/deepseek/qml/DeepSeekDetail.qml
 )
 
 target_include_directories(easyGlmUsage PRIVATE src)
@@ -44,7 +53,7 @@ target_link_libraries(easyGlmUsage PRIVATE
 )
 
 set_target_properties(easyGlmUsage PROPERTIES
-    QT_QML_IMPORT_PATH "${CMAKE_SOURCE_DIR}/src/qml"
+    QT_QML_IMPORT_PATH "${CMAKE_SOURCE_DIR}/src/qml;${CMAKE_SOURCE_DIR}/src/platforms/glm/qml;${CMAKE_SOURCE_DIR}/src/platforms/deepseek/qml"
     QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/android"
 )
 

@@ -9,6 +9,8 @@
 #include <QTimer>
 #include "platformconfig.h"
 
+class PlatformHandler;
+
 struct ModelUsageItem {
     Q_GADGET
 public:
@@ -162,25 +164,19 @@ signals:
 private:
     struct PlatformQuery {
         PlatformConfig config;
-        int pending = 3;
+        PlatformHandler *handler = nullptr;
+        int pending = 0;
         int success = 0;
         UsageData data;
     };
 
     void abortActiveRequests();
-    void queryAllPlatforms();
+    void queryAllPlatforms(const QString &timeQuery);
     void sendRequest(PlatformQuery *pq, const QString &path, const QString &query,
-                     std::function<void(PlatformQuery *, QNetworkReply *)> callback,
-                     int retry = 0);
-    void onModelUsageReply(PlatformQuery *pq, QNetworkReply *reply);
-    void onToolUsageReply(PlatformQuery *pq, QNetworkReply *reply);
-    void onQuotaLimitReply(PlatformQuery *pq, QNetworkReply *reply);
-    void onBalanceReply(PlatformQuery *pq, QNetworkReply *reply);
+                     PlatformHandler *handler, int endpointIndex, int retry = 0);
     void platformDone(PlatformQuery *pq);
-    QString parseUsageDetails(const QJsonValue &val);
     QJsonObject parseJsonReply(QNetworkReply *reply, const QString &context);
     static QJsonObject usageDataToJson(const UsageData &data);
-    static QString detectPlatformType(const QString &baseUrl);
 
     QNetworkAccessManager *m_manager;
     QTimer *m_timer;

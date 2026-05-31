@@ -511,20 +511,25 @@ public class GlmUsageWidget extends AppWidgetProvider {
     private void scheduleAutoRefresh(Context c) {
         AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
+        int intervalMin = 15;
+        SharedPreferences prefs = c.getSharedPreferences("glm_usage_prefs", Context.MODE_MULTI_PROCESS);
+        try { intervalMin = Integer.parseInt(prefs.getString("widgetRefreshInterval", "15")); }
+        catch (Exception e) { /* use default */ }
+        if (intervalMin < 1) intervalMin = 15;
         Intent i = new Intent(c, GlmUsageWidget.class);
-        i.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        i.setAction(WIDGET_REFRESH);
         PendingIntent pi = PendingIntent.getBroadcast(c, 0, i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.cancel(pi);
         am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME,
-                SystemClock.elapsedRealtime() + 60000, 15 * 60 * 1000, pi);
+                SystemClock.elapsedRealtime() + 60000, intervalMin * 60 * 1000, pi);
     }
 
     private void cancelAutoRefresh(Context c) {
         AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
         Intent i = new Intent(c, GlmUsageWidget.class);
-        i.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        i.setAction(WIDGET_REFRESH);
         PendingIntent pi = PendingIntent.getBroadcast(c, 0, i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.cancel(pi);

@@ -6,6 +6,21 @@
 #include "usagequery.h"
 #include "appsettings.h"
 #include "widgetbridge.h"
+#include "platform_registry.h"
+
+class AndroidHelper : public QObject
+{
+    Q_OBJECT
+public:
+    explicit AndroidHelper(QObject *parent = nullptr) : QObject(parent) {}
+    Q_INVOKABLE void moveToBack()
+    {
+        QJniObject activity = QJniObject::callStaticObjectMethod(
+            "org/qtproject/qt/android/QtNative", "activity", "()Landroid/app/Activity;");
+        if (activity.isValid())
+            activity.callMethod<void>("moveTaskToBack", "(Z)V", true);
+    }
+};
 
 static bool checkWidgetRefreshIntent()
 {
@@ -40,6 +55,8 @@ int main(int argc, char *argv[])
     app.setApplicationName("GLM Usage");
     app.setOrganizationName("com.glm.usage");
 
+    PlatformRegistry::init();
+
     UsageQuery query;
     WidgetBridge bridge;
 
@@ -62,13 +79,17 @@ int main(int argc, char *argv[])
 
     engine.rootContext()->setContextProperty("usageQuery", &query);
     engine.rootContext()->setContextProperty("appSettings", &AppSettings::instance());
+    engine.rootContext()->setContextProperty("platformRegistry", &PlatformRegistry::instance());
+    engine.rootContext()->setContextProperty("androidHelper", new AndroidHelper(&app));
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() { QCoreApplication::exit(-1); },
                      Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/src/qml/MainPage.qml")));
 
-    AppSettings::instance().syncWidgetConfig();
+    QTimer::singleShot(0, []() {
+        AppSettings::instance().syncWidgetConfig();
+    });
 
     if (refreshOnly || AppSettings::instance().isConfigured())
         query.query();
@@ -79,3 +100,5 @@ int main(int argc, char *argv[])
 
     return app.exec();
 }
+
+#include "main.moc"

@@ -11,12 +11,14 @@ struct PlatformConfig {
     Q_PROPERTY(QString baseUrl MEMBER baseUrl)
     Q_PROPERTY(QString authToken MEMBER authToken)
     Q_PROPERTY(QString apiPrefix MEMBER apiPrefix)
+    Q_PROPERTY(QString platformType MEMBER platformType)
     Q_PROPERTY(bool enabled MEMBER enabled)
 public:
     QString name;
     QString baseUrl;
     QString authToken;
     QString apiPrefix = "/api/monitor/usage";
+    QString platformType;
     bool enabled = true;
 
     QJsonObject toJson() const {
@@ -25,6 +27,7 @@ public:
         o["baseUrl"] = baseUrl;
         o["authToken"] = authToken;
         o["apiPrefix"] = apiPrefix;
+        o["platformType"] = platformType;
         o["enabled"] = enabled;
         return o;
     }
@@ -35,6 +38,7 @@ public:
         pc.baseUrl = o["baseUrl"].toString();
         pc.authToken = o["authToken"].toString();
         pc.apiPrefix = o["apiPrefix"].toString("/api/monitor/usage");
+        pc.platformType = o["platformType"].toString();
         pc.enabled = o["enabled"].toBool(true);
         return pc;
     }

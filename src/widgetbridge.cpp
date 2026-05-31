@@ -1,6 +1,7 @@
 #include "widgetbridge.h"
 #include "appsettings.h"
 #include "androidprefs.h"
+#include "platform_registry.h"
 
 WidgetBridge::WidgetBridge(QObject *parent) : QObject(parent) {}
 
@@ -21,29 +22,32 @@ void WidgetBridge::onPlatformFinished(const UsageData &data)
     AndroidPrefs::write(prefix + "name", data.platformName);
     AndroidPrefs::write(prefix + "type", data.platformType);
 
-    if (data.platformType == "deepseek") {
-        QString balanceStr;
-        QString grantedStr;
-        auto quotas = data.quotaLimits;
-        for (const auto &q : quotas) {
-            if (q.type.contains("BALANCE") && balanceStr.isEmpty()) {
-                QString currency = q.type.contains("CNY") ? "CNY" : "USD";
-                balanceStr = currency + " " + QString::number(q.total / 100.0, 'f', 2);
-                grantedStr = QString::number(q.remaining / 100.0, 'f', 2);
+    auto &desc = PlatformRegistry::instance().descriptor(data.platformType);
+    for (const auto &slot : desc.widgetSlots) {
+        QString value;
+        if (slot.dataKey == "token")
+            value = QString::number(data.tokenPercentage());
+        else if (slot.dataKey == "mcp")
+            value = QString::number(data.mcpPercentage());
+        else if (slot.dataKey == "time")
+            value = data.tokenResetTime();
+        else if (slot.dataKey == "balance") {
+            for (const auto &q : data.quotaLimits) {
+                if (q.type.contains("BALANCE") && value.isEmpty()) {
+                    QString currency = q.type.contains("CNY") ? "CNY" : "USD";
+                    value = currency + " " + QString::number(q.total / 100.0, 'f', 2);
+                }
+            }
+        } else if (slot.dataKey == "granted") {
+            for (const auto &q : data.quotaLimits) {
+                if (q.type.contains("BALANCE") && value.isEmpty()) {
+                    value = QString::number(q.remaining / 100.0, 'f', 2);
+                }
             }
         }
-        AndroidPrefs::write(prefix + "balance", balanceStr);
-        AndroidPrefs::write(prefix + "granted", grantedStr);
-        AndroidPrefs::write(prefix + "token", "-1.0");
-        AndroidPrefs::write(prefix + "mcp", "-1.0");
-        AndroidPrefs::write(prefix + "time", "");
-    } else {
-        AndroidPrefs::write(prefix + "token", QString::number(data.tokenPercentage()));
-        AndroidPrefs::write(prefix + "mcp", QString::number(data.mcpPercentage()));
-        AndroidPrefs::write(prefix + "time", data.tokenResetTime());
-        AndroidPrefs::write(prefix + "balance", "");
-        AndroidPrefs::write(prefix + "granted", "");
+        AndroidPrefs::write(prefix + slot.dataKey, value.isEmpty() ? "-1.0" : value);
     }
+
     m_completedCount++;
 }
 
@@ -58,6 +62,7 @@ void WidgetBridge::onAllFinished()
     AndroidPrefs::writeInt("widgetShowBalance", s.widgetShowBalance());
     AndroidPrefs::writeInt("widgetShowGranted", s.widgetShowGranted());
     AndroidPrefs::writeInt("widgetFontSize", s.widgetFontSize());
+    AndroidPrefs::writeInt("widgetRefreshInterval", s.autoRefreshInterval());
 
     m_completedCount = 0;
     AndroidPrefs::notifyWidgetUpdate();

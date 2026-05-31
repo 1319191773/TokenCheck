@@ -1,5 +1,6 @@
 #include "appsettings.h"
 #include "androidprefs.h"
+#include "platform_registry.h"
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -34,6 +35,11 @@ QString AppSettings::platformBaseUrl(int i) const
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].baseUrl : QString();
 }
 
+QString AppSettings::platformType(int i) const
+{
+    return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].platformType : QString();
+}
+
 QString AppSettings::platformAuthToken(int i) const
 {
     return (i >= 0 && i < m_platforms.size()) ? m_platforms[i].authToken : QString();
@@ -50,7 +56,8 @@ bool AppSettings::platformEnabled(int i) const
 }
 
 void AppSettings::setPlatform(int i, const QString &name, const QString &baseUrl,
-                               const QString &token, const QString &apiPrefix, bool enabled)
+                               const QString &token, const QString &apiPrefix, bool enabled,
+                               const QString &platformType)
 {
     if (i >= 0 && i < m_platforms.size()) {
         m_platforms[i].name = name;
@@ -58,6 +65,8 @@ void AppSettings::setPlatform(int i, const QString &name, const QString &baseUrl
         m_platforms[i].authToken = token;
         m_platforms[i].apiPrefix = apiPrefix;
         m_platforms[i].enabled = enabled;
+        if (!platformType.isEmpty())
+            m_platforms[i].platformType = platformType;
         save();
         emit platformsChanged();
     }
@@ -65,7 +74,7 @@ void AppSettings::setPlatform(int i, const QString &name, const QString &baseUrl
 
 void AppSettings::addPlatform(const QString &name, const QString &baseUrl,
                                const QString &token, const QString &apiPrefix,
-                               bool enabled)
+                               bool enabled, const QString &platformType)
 {
     PlatformConfig pc;
     pc.name = name;
@@ -73,6 +82,15 @@ void AppSettings::addPlatform(const QString &name, const QString &baseUrl,
     pc.authToken = token;
     pc.apiPrefix = apiPrefix.isEmpty() ? "/api/monitor/usage" : apiPrefix;
     pc.enabled = enabled;
+    if (!platformType.isEmpty()) {
+        pc.platformType = platformType;
+    } else {
+        QString lower = baseUrl.toLower();
+        if (lower.contains("deepseek"))
+            pc.platformType = "deepseek";
+        else
+            pc.platformType = "glm";
+    }
     m_platforms.append(pc);
     save();
     emit platformsChanged();
@@ -196,6 +214,13 @@ void AppSettings::load()
     for (const QJsonValue &v : arr)
         m_platforms.append(PlatformConfig::fromJson(v.toObject()));
 
+    for (auto &p : m_platforms) {
+        if (p.platformType.isEmpty()) {
+            QString lower = p.baseUrl.toLower();
+            p.platformType = lower.contains("deepseek") ? "deepseek" : "glm";
+        }
+    }
+
     m_autoRefreshInterval = root["autoRefreshInterval"].toInt(5);
     m_widgetFontSize = root["widgetFontSize"].toInt(14);
     m_widgetShowToken = root["widgetShowToken"].toInt(1);
@@ -234,6 +259,7 @@ void AppSettings::syncWidgetConfig()
     AndroidPrefs::writeInt("widgetShowBalance", m_widgetShowBalance);
     AndroidPrefs::writeInt("widgetShowGranted", m_widgetShowGranted);
     AndroidPrefs::writeInt("widgetFontSize", m_widgetFontSize);
+    AndroidPrefs::writeInt("widgetRefreshInterval", m_autoRefreshInterval);
 
     QJsonArray arr;
     for (const auto &p : m_platforms)

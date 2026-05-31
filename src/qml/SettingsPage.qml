@@ -26,7 +26,8 @@ Page {
                 append({
                     "pIndex": i,
                     "pName": appSettings.platformName(i),
-                    "pUrl": appSettings.platformBaseUrl(i)
+                    "pUrl": appSettings.platformBaseUrl(i),
+                    "pType": appSettings.platformType(i)
                 })
             }
         }
@@ -254,10 +255,10 @@ Page {
                                     if (tField.text.length < 5) return
                                     if (pCombo.currentIndex === 0) {
                                         appSettings.addPlatform("智谱 GLM", "https://open.bigmodel.cn",
-                                                                tField.text, "/api/monitor/usage")
+                                                                tField.text, "/api/monitor/usage", true, "glm")
                                     } else if (pCombo.currentIndex === 1) {
                                         appSettings.addPlatform("DeepSeek", "https://api.deepseek.com",
-                                                                tField.text, "")
+                                                                tField.text, "", true, "deepseek")
                                     } else {
                                         if (urlField.text.length < 5) return
                                         appSettings.addPlatform("自定义", urlField.text,
@@ -307,27 +308,18 @@ Page {
                                                 color: Theme.text
                                             }
                                             Rectangle {
-                                                visible: model.pUrl
+                                                visible: model.pType && model.pUrl
                                                 radius: 4
                                                 implicitHeight: 16
                                                 implicitWidth: typeTag.implicitWidth + 10
-                                                color: {
-                                                    var u = (model.pUrl || "").toLowerCase()
-                                                    return u.indexOf("deepseek") >= 0 ? "#E0F2FE" : Theme.okLight
-                                                }
+                                                color: model.pType === "deepseek" ? "#E0F2FE" : Theme.okLight
                                                 Text {
                                                     id: typeTag
                                                     anchors.centerIn: parent
-                                                    text: {
-                                                        var u = (model.pUrl || "").toLowerCase()
-                                                        return u.indexOf("deepseek") >= 0 ? "DeepSeek" : "GLM"
-                                                    }
+                                                    text: model.pType === "deepseek" ? "DeepSeek" : "GLM"
                                                     font.pixelSize: Theme.fontSizeTiny - 1
                                                     font.bold: true
-                                                    color: {
-                                                        var u = (model.pUrl || "").toLowerCase()
-                                                        return u.indexOf("deepseek") >= 0 ? "#0284C7" : Theme.ok
-                                                    }
+                                                    color: model.pType === "deepseek" ? "#0284C7" : Theme.ok
                                                 }
                                             }
                                         }

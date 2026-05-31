@@ -1,9 +1,10 @@
 #include "usagequery.h"
 #include "appsettings.h"
-#include "androidprefs.h"
+#include "platform_registry.h"
+#include "platform_handler.h"
 #include <QDateTime>
 #include <QJsonDocument>
-#include <QRegularExpression>
+#include <QUrl>
 
 double UsageData::tokenPercentage() const
 {
@@ -76,15 +77,17 @@ void UsageQuery::abortActiveRequests()
 
 void UsageQuery::query()
 {
-    if (m_querying) {
+    if (m_querying)
         abortActiveRequests();
-    }
+
+    PlatformRegistry::init();
 
     auto platforms = AppSettings::instance().allPlatforms();
     QList<PlatformConfig> enabled;
-    for (const auto &p : platforms)
+    for (const auto &p : platforms) {
         if (p.enabled && !p.authToken.isEmpty())
             enabled.append(p);
+    }
 
     if (enabled.isEmpty()) {
         emit queryFailed("No platform configured");
@@ -94,55 +97,46 @@ void UsageQuery::query()
     m_querying = true;
 
     for (const auto &cfg : enabled) {
-        QString ptype = detectPlatformType(cfg.baseUrl);
-        int pending = (ptype == "deepseek") ? 1 : 3;
-        m_active.append(new PlatformQuery{cfg, pending, 0, UsageData()});
-        m_active.last()->data.platformName = cfg.name;
-        m_active.last()->data.platformType = ptype;
+        auto ptype = cfg.platformType;
+        auto *handler = PlatformRegistry::instance().handler(ptype);
+        if (!handler)
+            continue;
+
+        auto *pq = new PlatformQuery{cfg, handler, 0, 0, UsageData()};
+        pq->data.platformName = cfg.name;
+        pq->data.platformType = ptype;
+        m_active.append(pq);
     }
-    queryAllPlatforms();
-}
 
-QString UsageQuery::detectPlatformType(const QString &baseUrl)
-{
-    QString lower = baseUrl.toLower();
-    if (lower.contains("deepseek"))
-        return "deepseek";
-    return "glm";
-}
-
-void UsageQuery::queryAllPlatforms()
-{
     QDateTime now = QDateTime::currentDateTime();
     QDateTime start = now.addSecs(-24 * 3600);
     QString timeQuery = QString("?startTime=%1&endTime=%2")
                                 .arg(QUrl::toPercentEncoding(start.toString("yyyy-MM-dd HH:mm:ss")),
                                      QUrl::toPercentEncoding(now.toString("yyyy-MM-dd HH:mm:ss")));
+    queryAllPlatforms(timeQuery);
+}
 
+void UsageQuery::queryAllPlatforms(const QString &timeQuery)
+{
     for (auto *pq : m_active) {
-        if (pq->data.platformType == "deepseek") {
-            sendRequest(pq, "/user/balance", "",
-                        [this](PlatformQuery *p, QNetworkReply *r) { onBalanceReply(p, r); });
-        } else {
-            sendRequest(pq, pq->config.apiPrefix + "/model-usage", timeQuery,
-                        [this](PlatformQuery *p, QNetworkReply *r) { onModelUsageReply(p, r); });
-            sendRequest(pq, pq->config.apiPrefix + "/tool-usage", timeQuery,
-                        [this](PlatformQuery *p, QNetworkReply *r) { onToolUsageReply(p, r); });
-            sendRequest(pq, pq->config.apiPrefix + "/quota/limit", "",
-                        [this](PlatformQuery *p, QNetworkReply *r) { onQuotaLimitReply(p, r); });
+        auto endpoints = pq->handler->endpoints(pq->config.apiPrefix, timeQuery);
+        pq->pending = endpoints.size();
+        for (int i = 0; i < endpoints.size(); i++) {
+            sendRequest(pq, endpoints[i].path, endpoints[i].query,
+                        pq->handler, i);
         }
     }
 }
 
 void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QString &query,
-                              std::function<void(PlatformQuery *, QNetworkReply *)> callback,
-                              int retry)
+                              PlatformHandler *handler, int endpointIndex, int retry)
 {
     QUrl url(pq->config.baseUrl + path + query);
     QNetworkRequest request(url);
     QByteArray authHeader = pq->config.authToken.toUtf8();
-    if (pq->data.platformType == "deepseek" && !authHeader.startsWith("Bearer "))
-        authHeader = "Bearer " + authHeader;
+    QString prefix = handler->authHeaderPrefix();
+    if (!prefix.isEmpty() && !authHeader.startsWith(prefix.toUtf8()))
+        authHeader = prefix.toUtf8() + authHeader;
     request.setRawHeader("Authorization", authHeader);
     request.setRawHeader("Accept-Language", "en-US,en");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -152,7 +146,7 @@ void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QStri
     m_pendingReplies.append(reply);
 
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, pq, path, query, callback, retry]() {
+            [this, reply, pq, path, query, handler, endpointIndex, retry]() {
                 m_pendingReplies.removeOne(reply);
 
                 if (!m_active.contains(pq)) {
@@ -161,16 +155,19 @@ void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QStri
                 }
 
                 if (reply->error() != QNetworkReply::NoError) {
-                    if (reply->error() == QNetworkReply::TimeoutError) {
+                    if (reply->error() == QNetworkReply::TimeoutError)
                         qWarning() << "Request timeout:" << path;
-                    }
                     if (retry < 2) {
                         reply->deleteLater();
-                        sendRequest(pq, path, query, callback, retry + 1);
+                        sendRequest(pq, path, query, handler, endpointIndex, retry + 1);
                         return;
                     }
                 }
-                callback(pq, reply);
+
+                QJsonObject root = parseJsonReply(reply, "api");
+                if (handler->parse(endpointIndex, root, pq->data))
+                    pq->success++;
+                platformDone(pq);
                 reply->deleteLater();
             });
 }
@@ -189,121 +186,6 @@ QJsonObject UsageQuery::parseJsonReply(QNetworkReply *reply, const QString &cont
         return QJsonObject();
     }
     return doc.object();
-}
-
-void UsageQuery::onModelUsageReply(PlatformQuery *pq, QNetworkReply *reply)
-{
-    QJsonObject root = parseJsonReply(reply, "model-usage");
-    if (!root.isEmpty() && root.contains("data")) {
-        QJsonArray arr = root.value("data").toArray();
-        for (const QJsonValue &v : arr) {
-            QJsonObject o = v.toObject();
-            ModelUsageItem item;
-            item.model = o["model"].toString();
-            item.provider = o["provider"].toString();
-            item.inputTokens = o["inputTokens"].toVariant().toLongLong();
-            item.outputTokens = o["outputTokens"].toVariant().toLongLong();
-            item.totalTokens = o["totalTokens"].toVariant().toLongLong();
-            item.requestCount = o["requestCount"].toVariant().toLongLong();
-            pq->data.modelUsage.append(item);
-        }
-        pq->success++;
-    }
-    platformDone(pq);
-}
-
-void UsageQuery::onToolUsageReply(PlatformQuery *pq, QNetworkReply *reply)
-{
-    QJsonObject root = parseJsonReply(reply, "tool-usage");
-    if (!root.isEmpty() && root.contains("data")) {
-        QJsonArray arr = root.value("data").toArray();
-        for (const QJsonValue &v : arr) {
-            QJsonObject o = v.toObject();
-            ToolUsageItem item;
-            item.toolName = o["toolName"].toString();
-            item.callCount = o["callCount"].toVariant().toLongLong();
-            pq->data.toolUsage.append(item);
-        }
-        pq->success++;
-    }
-    platformDone(pq);
-}
-
-QString UsageQuery::parseUsageDetails(const QJsonValue &val)
-{
-    if (val.isArray()) {
-        QStringList parts;
-        for (const QJsonValue &v : val.toArray()) {
-            QJsonObject o = v.toObject();
-            QStringList fields;
-            for (const QString &key : o.keys()) {
-                QString value = o.value(key).toString();
-                if (!value.isEmpty())
-                    fields.append(key + ": " + value);
-            }
-            if (!fields.isEmpty())
-                parts.append(fields.join(", "));
-        }
-        return parts.join(" | ");
-    }
-    if (val.isString()) {
-        QString s = val.toString().trimmed();
-        return (s.isEmpty() || s == "/" || s.replace(QRegularExpression("[/|\\s]"), "").isEmpty())
-               ? QString() : s;
-    }
-    return QString();
-}
-
-void UsageQuery::onQuotaLimitReply(PlatformQuery *pq, QNetworkReply *reply)
-{
-    QJsonObject root = parseJsonReply(reply, "quota-limit");
-    if (!root.isEmpty() && root.contains("data")) {
-        QJsonObject dataObj = root.value("data").toObject();
-        if (dataObj.contains("limits")) {
-            QJsonArray arr = dataObj.value("limits").toArray();
-            for (const QJsonValue &v : arr) {
-                QJsonObject o = v.toObject();
-                QuotaLimitItem item;
-                item.type = o["type"].toString();
-                item.percentage = o["percentage"].toDouble();
-                item.currentUsage = o["currentValue"].toVariant().toLongLong();
-                item.total = o["usage"].toVariant().toLongLong();
-                item.remaining = o["remaining"].toVariant().toLongLong();
-                item.unit = o["unit"].toVariant().toLongLong();
-                item.number = o["number"].toVariant().toLongLong();
-                item.nextResetTime = o["nextResetTime"].toVariant().toLongLong();
-                item.usageDetails = parseUsageDetails(o["usageDetails"]);
-                if (item.nextResetTime > 0)
-                    item.resetTime = QDateTime::fromMSecsSinceEpoch(item.nextResetTime).toString("HH:mm");
-                pq->data.quotaLimits.append(item);
-            }
-            pq->success++;
-        }
-    }
-    platformDone(pq);
-}
-
-void UsageQuery::onBalanceReply(PlatformQuery *pq, QNetworkReply *reply)
-{
-    QJsonObject root = parseJsonReply(reply, "balance");
-    if (!root.isEmpty() && root.contains("balance_infos")) {
-        QJsonArray infos = root.value("balance_infos").toArray();
-        bool isAvailable = root.value("is_available").toBool();
-        for (int i = 0; i < infos.size(); i++) {
-            QJsonObject info = infos[i].toObject();
-            QString currency = info.value("currency").toString("USD");
-            QuotaLimitItem item;
-            item.type = "BALANCE_" + currency.toUpper();
-            item.percentage = -1.0;
-            item.total = static_cast<qint64>(info.value("total_balance").toString("0").toDouble() * 100);
-            item.remaining = static_cast<qint64>(info.value("granted_balance").toString("0").toDouble() * 100);
-            item.currentUsage = static_cast<qint64>(info.value("topped_up_balance").toString("0").toDouble() * 100);
-            item.unit = isAvailable ? 1 : 0;
-            pq->data.quotaLimits.append(item);
-        }
-        pq->success++;
-    }
-    platformDone(pq);
 }
 
 void UsageQuery::platformDone(PlatformQuery *pq)

@@ -247,7 +247,7 @@ Page {
                             radius: Theme.radiusLarge
                             border.width: 1
                             scale: 1
-                            implicitHeight: cardCol.implicitHeight + 40
+                            implicitHeight: (cardLoader.item ? cardLoader.item.implicitHeight : 80) + 32
                             color: modelData.valid ? Theme.card : Theme.badLight
                             border.color: modelData.valid ? Theme.border : Theme.badMid
 
@@ -263,144 +263,14 @@ Page {
                                 onClicked: root.platformClicked(index)
                             }
 
-                            ColumnLayout {
-                                id: cardCol
+                            Loader {
+                                id: cardLoader
                                 anchors.top: parent.top
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.margins: Theme.spacingLarge
-                                spacing: Theme.spacingMedium
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text {
-                                        text: modelData.name
-                                        font.pixelSize: Theme.fontSizeLarge
-                                        font.bold: true
-                                        color: Theme.text
-                                        Layout.fillWidth: true
-                                    }
-                                    Rectangle {
-                                        radius: 6
-                                        implicitHeight: 22
-                                        implicitWidth: statusLabel.implicitWidth + 16
-                                        color: modelData.valid ? Theme.okLight : Theme.badMid
-                                        Text {
-                                            id: statusLabel
-                                            anchors.centerIn: parent
-                                            text: modelData.valid ? qsTr("已连接") : qsTr("未连接")
-                                            font.pixelSize: Theme.fontSizeTiny
-                                            font.bold: true
-                                            color: modelData.valid ? Theme.ok : Theme.bad
-                                        }
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacingTiny
-                                    visible: modelData.platformType !== "deepseek"
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Text {
-                                            text: "Token"
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            color: Theme.muted
-                                            Layout.fillWidth: true
-                                        }
-                                        Text {
-                                            text: Theme.fmtPct(modelData.tokenPct)
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                            color: Theme.pctColor(modelData.tokenPct)
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 6
-                                        radius: 3
-                                        color: Theme.border
-                                        Rectangle {
-                                            height: 6
-                                            radius: 3
-                                            color: Theme.pctColor(modelData.tokenPct)
-                                            width: parent.width * Math.min(Math.max(modelData.tokenPct, 0), 100) / 100
-                                        }
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacingTiny
-                                    visible: modelData.platformType !== "deepseek"
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Text {
-                                            text: "MCP"
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            color: Theme.muted
-                                            Layout.fillWidth: true
-                                        }
-                                        Text {
-                                            text: Theme.fmtPct(modelData.mcpPct)
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                            color: Theme.pctColor(modelData.mcpPct)
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 6
-                                        radius: 3
-                                        color: Theme.border
-                                        Rectangle {
-                                            height: 6
-                                            radius: 3
-                                            color: Theme.pctColor(modelData.mcpPct)
-                                            width: parent.width * Math.min(Math.max(modelData.mcpPct, 0), 100) / 100
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: modelData.platformType === "deepseek"
-                                    Text {
-                                        text: qsTr("余额")
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        color: Theme.muted
-                                    }
-                                    Text {
-                                        text: modelData.primaryBalance || "--"
-                                        font.pixelSize: Theme.fontSizeNormal
-                                        font.bold: true
-                                        color: Theme.primary
-                                        Layout.fillWidth: true
-                                    }
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: Theme.border
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text {
-                                        text: modelData.platformType === "deepseek"
-                                               ? qsTr("查看详情")
-                                               : (qsTr("重置") + " " + (modelData.resetTime || "--"))
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        color: Theme.muted
-                                        Layout.fillWidth: true
-                                    }
-                                    Text {
-                                        text: ">"
-                                        font.pixelSize: 14
-                                        color: Theme.muted
-                                    }
-                                }
+                                source: resolveCardSource(modelData.platformType)
+                                onLoaded: item.cardData = modelData
                             }
                         }
                     }
@@ -488,6 +358,14 @@ Page {
                     root.refreshRequested()
                 }
             }
+        }
+    }
+
+    function resolveCardSource(type) {
+        switch (type) {
+        case "glm": return "../platforms/glm/qml/GlmCard.qml"
+        case "deepseek": return "../platforms/deepseek/qml/DeepSeekCard.qml"
+        default: return "../platforms/glm/qml/GlmCard.qml"
         }
     }
 }
