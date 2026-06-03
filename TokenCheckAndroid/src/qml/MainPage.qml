@@ -1,0 +1,299 @@
+import QtQuick
+import QtQuick.Controls
+
+ApplicationWindow {
+    id: app
+    width: 400
+    height: 800
+    title: "TokenCheck"
+    visible: true
+    color: Theme.bg
+
+    property var platformData: []
+    property bool isRefreshing: false
+    property string lastError: ""
+
+    function rebuildPlatformData(data) {
+        var f = false
+        for (var i = 0; i < platformData.length; i++) {
+            if (platformData[i].name === data.platformName) {
+                platformData[i] = extractPlatformInfo(data)
+                f = true
+                break
+            }
+        }
+        if (!f)
+            platformData.push(extractPlatformInfo(data))
+        platformDataChanged()
+    }
+
+    function extractPlatformInfo(data) {
+        var d = {
+            "name": data.platformName,
+            "platformType": data.platformType,
+            "tokenPct": data.tokenPercentage(),
+            "mcpPct": data.mcpPercentage(),
+            "resetTime": data.tokenResetTime(),
+            "valid": data.isValid,
+            "error": data.errorMsg,
+            "models": data.modelNames(),
+            "modelProvider": [],
+            "modelTokens": [],
+            "modelInputTokens": [],
+            "modelOutputTokens": [],
+            "modelReq": [],
+            "toolNames": [],
+            "toolCalls": [],
+            "quotas": []
+        }
+        for (var j = 0; j < data.modelCount(); j++) {
+            d.modelProvider.push(data.modelProvider(j))
+            d.modelTokens.push(data.modelTokens(j))
+            d.modelInputTokens.push(data.modelInputTokens(j))
+            d.modelOutputTokens.push(data.modelOutputTokens(j))
+            d.modelReq.push(data.modelRequests(j))
+        }
+        for (var k = 0; k < data.toolCount(); k++) {
+            d.toolNames.push(data.toolNames()[k])
+            d.toolCalls.push(data.toolCalls(k))
+        }
+        for (var q = 0; q < data.quotaCount(); q++) {
+            d.quotas.push({
+                "type": data.quotaType(q),
+                "percentage": data.quotaPercentage(q),
+                "currentUsage": data.quotaCurrentUsage(q),
+                "total": data.quotaTotal(q),
+                "remaining": data.quotaRemaining(q),
+                "unit": data.quotaUnit(q),
+                "number": data.quotaNumber(q),
+                "resetTime": data.quotaResetTime(q),
+                "usageDetails": data.quotaUsageDetails(q)
+            })
+        }
+
+        var totalTokens = 0
+        for (var t = 0; t < d.modelTokens.length; t++)
+            totalTokens += d.modelTokens[t]
+        d.totalTokens = totalTokens
+
+        var totalReqs = 0
+        for (var r = 0; r < d.modelReq.length; r++)
+            totalReqs += d.modelReq[r]
+        d.totalReqs = totalReqs
+
+        var totalToolCalls = 0
+        for (var c = 0; c < d.toolCalls.length; c++)
+            totalToolCalls += d.toolCalls[c]
+        d.totalToolCalls = totalToolCalls
+
+        d.primaryBalance = ""
+        if (d.platformType === "deepseek") {
+            for (var qi = 0; qi < d.quotas.length; qi++) {
+                var q = d.quotas[qi]
+                if (q.type === "BALANCE_CNY" && q.total > 0) {
+                    d.primaryBalance = "CNY " + (q.total / 100).toFixed(2)
+                    break
+                }
+            }
+            if (!d.primaryBalance && d.quotas.length > 0) {
+                var first = d.quotas[0]
+                var cur = first.type.replace("BALANCE_", "")
+                d.primaryBalance = cur + " " + (first.total / 100).toFixed(2)
+            }
+        }
+
+        return d
+    }
+
+    Connections {
+        target: usageQuery
+        function onQueryFinished(data) {
+            rebuildPlatformData(data)
+        }
+        function onQueryAllFinished() {
+            isRefreshing = false
+            lastError = ""
+            var ordered = []
+            var count = appSettings.platformCount()
+            for (var i = 0; i < count; i++) {
+                var n = appSettings.platformName(i)
+                for (var j = 0; j < platformData.length; j++) {
+                    if (platformData[j].name === n) {
+                        ordered.push(platformData[j])
+                        break
+                    }
+                }
+            }
+            if (ordered.length > 0) {
+                Qt.callLater(function() {
+                    platformData = ordered
+                    platformDataChanged()
+                })
+            }
+        }
+        function onQueryFailed(error) {
+            isRefreshing = false
+            lastError = error
+        }
+        function onCachedDataAvailable(json) {
+            try {
+                var arr = JSON.parse(json)
+                if (arr.data) arr = arr.data
+                for (var i = 0; i < arr.length; i++) {
+                    var d = arr[i]
+                    platformData.push({
+                        "name": d.platformName || "",
+                        "platformType": d.platformType || "glm",
+                        "tokenPct": d.tokenPct !== undefined ? d.tokenPct : -1,
+                        "mcpPct": d.mcpPct !== undefined ? d.mcpPct : -1,
+                        "resetTime": d.resetTime || "",
+                        "valid": d.isValid || false,
+                        "error": d.errorMsg || "",
+                        "models": (d.models || []).map(function(m) { return m.name }),
+                        "modelProvider": (d.models || []).map(function(m) { return m.provider || "" }),
+                        "modelTokens": (d.models || []).map(function(m) { return m.tokens }),
+                        "modelInputTokens": (d.models || []).map(function(m) { return m.inputTokens || 0 }),
+                        "modelOutputTokens": (d.models || []).map(function(m) { return m.outputTokens || 0 }),
+                        "modelReq": (d.models || []).map(function(m) { return m.requests }),
+                        "toolNames": (d.tools || []).map(function(t) { return t.name }),
+                        "toolCalls": (d.tools || []).map(function(t) { return t.calls }),
+                        "primaryBalance": "",
+                        "quotas": (d.quotas || []).map(function(q) {
+                            return {
+                                "type": q.type || "",
+                                "percentage": q.percentage || 0,
+                                "currentUsage": q.currentUsage || 0,
+                                "total": q.total || 0,
+                                "remaining": q.remaining || 0,
+                                "unit": q.unit || 0,
+                                "number": q.number || 0,
+                                "resetTime": q.resetTime || "",
+                                "usageDetails": q.usageDetails || ""
+                            }
+                        })
+                    })
+                }
+                for (var ci = 0; ci < platformData.length; ci++) {
+                    var pd = platformData[ci]
+                    if (pd.platformType === "deepseek" && !pd.primaryBalance) {
+                        for (var di = 0; di < pd.quotas.length; di++) {
+                            var dq = pd.quotas[di]
+                            if (dq.type === "BALANCE_CNY" && dq.total > 0) {
+                                pd.primaryBalance = "CNY " + (dq.total / 100).toFixed(2)
+                                break
+                            }
+                        }
+                        if (!pd.primaryBalance && pd.quotas.length > 0) {
+                            var fq = pd.quotas[0]
+                            var fcur = fq.type.replace("BALANCE_", "")
+                            pd.primaryBalance = fcur + " " + (fq.total / 100).toFixed(2)
+                        }
+                    }
+                }
+                platformDataChanged()
+            } catch(e) {}
+        }
+    }
+
+    Component.onCompleted: {
+        usageQuery.loadCache()
+    }
+
+    StackView {
+        id: sv
+        anchors.fill: parent
+        initialItem: mainContentComp
+        focus: true
+
+        Keys.onBackPressed: function(event) {
+            if (sv.depth > 1) {
+                sv.pop()
+            } else {
+                Qt.quit()
+            }
+            event.accepted = true
+        }
+
+        pushEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: sv.width * 0.2
+                to: 0
+                duration: 250
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 200
+            }
+        }
+        pushExit: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: 200
+            }
+        }
+        popEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: -sv.width * 0.2
+                to: 0
+                duration: 250
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 200
+            }
+        }
+        popExit: Transition {
+            NumberAnimation {
+                property: "x"
+                from: 0
+                to: sv.width * 0.2
+                duration: 250
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: 200
+            }
+        }
+    }
+
+    Component {
+        id: mainContentComp
+        MainContentPage {
+            stackView: sv
+            platformData: app.platformData
+            isRefreshing: app.isRefreshing
+            lastError: app.lastError
+
+            onRefreshRequested: {
+                app.platformData = []
+                app.isRefreshing = true
+                app.lastError = ""
+                usageQuery.query()
+            }
+
+            onErrorDismissed: {
+                app.lastError = ""
+            }
+
+            onPlatformClicked: function(index) {
+                sv.push("DetailPage.qml", {
+                    "stackView": sv,
+                    "platformData": app.platformData[index]
+                })
+            }
+        }
+    }
+}

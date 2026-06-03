@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TokenCheck</string>
+    <string name="widget_description">显示 Token 用量信息：Token 与 MCP 百分比</string>
+    <string name="widget_label_balance">余额</string>
+    <string name="widget_label_granted">赠金</string>
+    <string name="widget_label_reset">重置</string>
+</resources>

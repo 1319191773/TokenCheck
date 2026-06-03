@@ -1,0 +1,9 @@
+CMakeLists.txt.user
+build/
+*.so
+*.apk
+*.o
+moc_*
+ui_*
+qrc_*
+.cmake/
