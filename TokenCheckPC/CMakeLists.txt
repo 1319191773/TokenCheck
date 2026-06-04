@@ -35,6 +35,9 @@ else()
     endforeach()
 endif()
 
+set(APP_ICON_RESOURCE "${CMAKE_CURRENT_BINARY_DIR}/app.rc")
+configure_file(${CMAKE_SOURCE_DIR}/res/app.rc.in ${APP_ICON_RESOURCE} @ONLY)
+
 add_executable(TokenCheckPC
     src/main.cpp
     src/core/appsettings.cpp
@@ -50,7 +53,8 @@ add_executable(TokenCheckPC
     src/ui/globalhotkey.cpp
     src/ui/theme.cpp
     ${QM_FILES}
-    res/app.rc
+    ${APP_ICON_RESOURCE}
+    res/resources.qrc
 )
 
 target_include_directories(TokenCheckPC PRIVATE
@@ -82,9 +86,7 @@ add_custom_command(TARGET TokenCheckPC POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${OPENSSL_DLL_DIR}/libcrypto-1_1-x64.dll"
         "$<TARGET_FILE_DIR:TokenCheckPC>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/res/icon.png"
-        "$<TARGET_FILE_DIR:TokenCheckPC>"
+
 )
 
 if(WIN32)

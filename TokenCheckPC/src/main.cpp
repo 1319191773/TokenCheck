@@ -45,9 +45,7 @@ int main(int argc, char *argv[])
     app.setApplicationName("TokenCheckPC");
     app.setQuitOnLastWindowClosed(false);
 
-    QString iconPath = QCoreApplication::applicationDirPath() + "/icon.png";
-    if (QFile::exists(iconPath))
-        app.setWindowIcon(QIcon(iconPath));
+    app.setWindowIcon(QIcon(":/icon.png"));
 
     loadTranslation(AppSettings::instance().language());
 

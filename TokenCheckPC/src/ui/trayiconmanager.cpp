@@ -25,8 +25,7 @@ TrayIconManager::TrayIconManager(FloatingBall *ball, MainWindow *window,
     m_tray->setContextMenu(m_menu);
     m_tray->setToolTip(tr("TokenCheck"));
 
-    QString iconPath = QCoreApplication::applicationDirPath() + "/icon.png";
-    QPixmap pix(iconPath);
+    QPixmap pix(":/icon.png");
     if (pix.isNull()) {
         pix = QPixmap(32, 32);
         pix.fill(Qt::transparent);
