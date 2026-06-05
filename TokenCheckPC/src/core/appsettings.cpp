@@ -191,6 +191,57 @@ void AppSettings::setLanguage(const QString &lang)
     save();
 }
 
+int AppSettings::ballBgOpacity() const { return m_ballBgOpacity; }
+void AppSettings::setBallBgOpacity(int o) { m_ballBgOpacity = o; save(); }
+
+int AppSettings::ringWidth() const { return m_ringWidth; }
+void AppSettings::setRingWidth(int w) { m_ringWidth = w; save(); }
+
+QColor AppSettings::ballBgColor() const { return m_ballBgColor; }
+void AppSettings::setBallBgColor(const QColor &c) { m_ballBgColor = c; save(); }
+
+int AppSettings::glmGreenThreshold() const { return m_glmGreenThreshold; }
+void AppSettings::setGlmGreenThreshold(int v) { m_glmGreenThreshold = v; save(); }
+int AppSettings::glmYellowThreshold() const { return m_glmYellowThreshold; }
+void AppSettings::setGlmYellowThreshold(int v) { m_glmYellowThreshold = v; save(); }
+QColor AppSettings::glmGreenColor() const { return m_glmGreenColor; }
+void AppSettings::setGlmGreenColor(const QColor &c) { m_glmGreenColor = c; save(); }
+QColor AppSettings::glmYellowColor() const { return m_glmYellowColor; }
+void AppSettings::setGlmYellowColor(const QColor &c) { m_glmYellowColor = c; save(); }
+QColor AppSettings::glmRedColor() const { return m_glmRedColor; }
+void AppSettings::setGlmRedColor(const QColor &c) { m_glmRedColor = c; save(); }
+
+double AppSettings::dsGreenThreshold() const { return m_dsGreenThreshold; }
+void AppSettings::setDsGreenThreshold(double v) { m_dsGreenThreshold = v; save(); }
+double AppSettings::dsYellowThreshold() const { return m_dsYellowThreshold; }
+void AppSettings::setDsYellowThreshold(double v) { m_dsYellowThreshold = v; save(); }
+QColor AppSettings::dsGreenColor() const { return m_dsGreenColor; }
+void AppSettings::setDsGreenColor(const QColor &c) { m_dsGreenColor = c; save(); }
+QColor AppSettings::dsYellowColor() const { return m_dsYellowColor; }
+void AppSettings::setDsYellowColor(const QColor &c) { m_dsYellowColor = c; save(); }
+QColor AppSettings::dsRedColor() const { return m_dsRedColor; }
+void AppSettings::setDsRedColor(const QColor &c) { m_dsRedColor = c; save(); }
+
+double AppSettings::dsTotalBalance() const { return m_dsTotalBalance; }
+void AppSettings::setDsTotalBalance(double v) { m_dsTotalBalance = v; save(); }
+
+bool AppSettings::dsShowUSD() const { return m_dsShowUSD; }
+void AppSettings::setDsShowUSD(bool v) { m_dsShowUSD = v; save(); }
+
+double AppSettings::dsUsdTotalBalance() const { return m_dsUsdTotalBalance; }
+void AppSettings::setDsUsdTotalBalance(double v) { m_dsUsdTotalBalance = v; save(); }
+
+double AppSettings::dsUsdGreenThreshold() const { return m_dsUsdGreenThreshold; }
+void AppSettings::setDsUsdGreenThreshold(double v) { m_dsUsdGreenThreshold = v; save(); }
+double AppSettings::dsUsdYellowThreshold() const { return m_dsUsdYellowThreshold; }
+void AppSettings::setDsUsdYellowThreshold(double v) { m_dsUsdYellowThreshold = v; save(); }
+QColor AppSettings::dsUsdGreenColor() const { return m_dsUsdGreenColor; }
+void AppSettings::setDsUsdGreenColor(const QColor &c) { m_dsUsdGreenColor = c; save(); }
+QColor AppSettings::dsUsdYellowColor() const { return m_dsUsdYellowColor; }
+void AppSettings::setDsUsdYellowColor(const QColor &c) { m_dsUsdYellowColor = c; save(); }
+QColor AppSettings::dsUsdRedColor() const { return m_dsUsdRedColor; }
+void AppSettings::setDsUsdRedColor(const QColor &c) { m_dsUsdRedColor = c; save(); }
+
 bool AppSettings::isConfigured() const
 {
     for (const auto &p : m_platforms) {
@@ -269,6 +320,29 @@ void AppSettings::load()
     m_proxyPort = root["proxyPort"].toInt(0);
     m_themeId = root["themeId"].toInt(0);
     m_language = root["language"].toString();
+
+    m_ballBgOpacity = root["ballBgOpacity"].toInt(80);
+    m_ringWidth = root["ringWidth"].toInt(4);
+    QString bbgc = root["ballBgColor"].toString();
+    if (!bbgc.isEmpty()) m_ballBgColor = QColor(bbgc);
+    m_glmGreenThreshold = root["glmGreenThreshold"].toInt(50);
+    m_glmYellowThreshold = root["glmYellowThreshold"].toInt(80);
+    m_glmGreenColor = QColor(root["glmGreenColor"].toString("#2ECC71"));
+    m_glmYellowColor = QColor(root["glmYellowColor"].toString("#F1C40F"));
+    m_glmRedColor = QColor(root["glmRedColor"].toString("#E74C3C"));
+    m_dsGreenThreshold = root["dsGreenThreshold"].toDouble(10.0);
+    m_dsYellowThreshold = root["dsYellowThreshold"].toDouble(1.0);
+    m_dsGreenColor = QColor(root["dsGreenColor"].toString("#2ECC71"));
+    m_dsYellowColor = QColor(root["dsYellowColor"].toString("#F1C40F"));
+    m_dsRedColor = QColor(root["dsRedColor"].toString("#E74C3C"));
+    m_dsTotalBalance = root["dsTotalBalance"].toDouble(100.0);
+    m_dsShowUSD = root["dsShowUSD"].toBool(true);
+    m_dsUsdTotalBalance = root["dsUsdTotalBalance"].toDouble(10.0);
+    m_dsUsdGreenThreshold = root["dsUsdGreenThreshold"].toDouble(5.0);
+    m_dsUsdYellowThreshold = root["dsUsdYellowThreshold"].toDouble(1.0);
+    m_dsUsdGreenColor = QColor(root["dsUsdGreenColor"].toString("#2ECC71"));
+    m_dsUsdYellowColor = QColor(root["dsUsdYellowColor"].toString("#F1C40F"));
+    m_dsUsdRedColor = QColor(root["dsUsdRedColor"].toString("#E74C3C"));
 }
 
 void AppSettings::save()
@@ -301,6 +375,28 @@ void AppSettings::save()
     root["proxyPort"] = m_proxyPort;
     root["themeId"] = m_themeId;
     root["language"] = m_language;
+
+    root["ballBgOpacity"] = m_ballBgOpacity;
+    root["ringWidth"] = m_ringWidth;
+    root["ballBgColor"] = m_ballBgColor.isValid() ? m_ballBgColor.name() : QString();
+    root["glmGreenThreshold"] = m_glmGreenThreshold;
+    root["glmYellowThreshold"] = m_glmYellowThreshold;
+    root["glmGreenColor"] = m_glmGreenColor.isValid() ? m_glmGreenColor.name() : QString();
+    root["glmYellowColor"] = m_glmYellowColor.isValid() ? m_glmYellowColor.name() : QString();
+    root["glmRedColor"] = m_glmRedColor.isValid() ? m_glmRedColor.name() : QString();
+    root["dsGreenThreshold"] = m_dsGreenThreshold;
+    root["dsYellowThreshold"] = m_dsYellowThreshold;
+    root["dsGreenColor"] = m_dsGreenColor.isValid() ? m_dsGreenColor.name() : QString();
+    root["dsYellowColor"] = m_dsYellowColor.isValid() ? m_dsYellowColor.name() : QString();
+    root["dsRedColor"] = m_dsRedColor.isValid() ? m_dsRedColor.name() : QString();
+    root["dsTotalBalance"] = m_dsTotalBalance;
+    root["dsShowUSD"] = m_dsShowUSD;
+    root["dsUsdTotalBalance"] = m_dsUsdTotalBalance;
+    root["dsUsdGreenThreshold"] = m_dsUsdGreenThreshold;
+    root["dsUsdYellowThreshold"] = m_dsUsdYellowThreshold;
+    root["dsUsdGreenColor"] = m_dsUsdGreenColor.isValid() ? m_dsUsdGreenColor.name() : QString();
+    root["dsUsdYellowColor"] = m_dsUsdYellowColor.isValid() ? m_dsUsdYellowColor.name() : QString();
+    root["dsUsdRedColor"] = m_dsUsdRedColor.isValid() ? m_dsUsdRedColor.name() : QString();
 
     QFile f(m_filePath);
     if (f.open(QIODevice::WriteOnly))

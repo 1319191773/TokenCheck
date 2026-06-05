@@ -2,21 +2,17 @@
 #define MAINWINDOW_H
 
 #include <QWidget>
-#include <QComboBox>
 #include <QLabel>
 #include <QProgressBar>
 #include <QTableWidget>
-#include <QListWidget>
-#include <QPushButton>
-#include <QSpinBox>
-#include <QCheckBox>
-#include "platformconfig.h"
+#include <QStackedWidget>
 #include "usagequery.h"
 
 class DataManager;
-class QTabWidget;
-class QLineEdit;
-class HotkeyButton;
+class QVBoxLayout;
+class QScrollArea;
+class QPushButton;
+class ClickableCard;
 
 class MainWindow : public QWidget
 {
@@ -25,53 +21,55 @@ class MainWindow : public QWidget
 public:
     explicit MainWindow(QWidget *parent = nullptr);
 
-    void syncWithDataManager();
-    void showTab(int index);
+    void showCardList();
+    void showDetail(const QString &accountName);
 
 signals:
     void refreshRequested();
-    void settingsApplied();
+    void settingsRequested();
 
 public slots:
     void onAllDataUpdated();
-
-protected:
-    void closeEvent(QCloseEvent *event) override;
+    void refreshTheme();
 
 private slots:
-    void onAccountChanged(const QString &name);
-    void onComboBoxChanged(int index);
-    void onTabChanged(int index);
-    void markDirty();
-    void onQuickAdd();
-    void onEditAccount();
-    void onRemoveAccount();
+    void onBackToList();
 
 private:
-    void setupUI();
-    QWidget *createDetailTab();
-    QWidget *createAccountsTab();
-    QWidget *createAppearanceTab();
-    QWidget *createGeneralTab();
+    QWidget *createCardListPage();
+    QWidget *createDetailPage();
+    void rebuildCards();
     void displayData(const UsageData &data);
     void displayEmpty();
+
     QWidget *createQuotaSection();
     QWidget *createSummarySection();
     QWidget *createModelSection();
     QWidget *createToolSection();
     QString formatTokens(qint64 n) const;
-    void populateAccounts();
-    void refreshAccountList();
-    void applySettings();
-    void reloadSettings();
-    bool checkSaveOnLeave();
 
     DataManager *m_dm;
-    QTabWidget *m_tabs;
-    bool m_settingsDirty = false;
-    int m_previousTab = -1;
+    QStackedWidget *m_stack;
 
-    QComboBox *m_accountCombo;
+    static const int PAGE_LIST = 0;
+    static const int PAGE_DETAIL = 1;
+
+    QFrame *m_listHeader;
+    QFrame *m_listBottomBar;
+    QPushButton *m_refreshBtn;
+    QPushButton *m_settingsBtn;
+    QScrollArea *m_cardScroll;
+    QWidget *m_cardContainer;
+
+    QFrame *m_detailHeader;
+    ClickableCard *m_backWidget;
+    QScrollArea *m_detailScroll;
+    QWidget *m_detailContainer;
+
+    QLabel *m_headerTitle;
+    QLabel *m_headerSub;
+    QVBoxLayout *m_cardLayout;
+
     QLabel *m_statusLabel;
     QLabel *m_timestampLabel;
 
@@ -100,24 +98,7 @@ private:
     QTableWidget *m_modelTable;
     QTableWidget *m_toolTable;
 
-    QListWidget *m_accountList;
-    QComboBox *m_themeCombo;
-    QComboBox *m_langCombo;
-    QSpinBox *m_intervalSpin;
-    QSpinBox *m_ballSizeSpin;
-    QSpinBox *m_timeFontSpin;
-    QSpinBox *m_pctFontSpin;
-    QPushButton *m_timeColorBtn;
-    QPushButton *m_pctColorBtn;
-    QCheckBox *m_autoStartCheck;
-    QSpinBox *m_notifySpin;
-    HotkeyButton *m_toggleHotkeyBtn;
-    HotkeyButton *m_refreshHotkeyBtn;
-    QComboBox *m_proxyTypeCombo;
-    QLineEdit *m_proxyHostEdit;
-    QSpinBox *m_proxyPortSpin;
-    QColor m_chosenTimeColor;
-    QColor m_chosenPctColor;
+    QString m_detailAccount;
 };
 
 #endif

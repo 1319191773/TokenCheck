@@ -3,522 +3,379 @@
 #include "appsettings.h"
 #include "datamanager.h"
 #include "theme.h"
+#include "component/clickablecard.h"
+#include "component/progressbar.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
-#include <QGroupBox>
-#include <QScrollArea>
+#include <QLabel>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QStackedWidget>
+#include <QProgressBar>
+#include <QTableWidget>
 #include <QHeaderView>
 #include <QDateTime>
 #include <QFrame>
-#include <QTabWidget>
-#include <QLineEdit>
-#include <QMessageBox>
-#include <QColorDialog>
-#include <QCloseEvent>
+#include <QGroupBox>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QWidget(parent, Qt::Window)
-    , m_dm(&DataManager::instance())
+    : QWidget(parent), m_dm(&DataManager::instance())
 {
     setObjectName("MainWindowRoot");
-    setWindowTitle(tr("GLM Usage"));
-    setMinimumSize(680, 720);
-    setupUI();
+    setWindowTitle("TokenCheck");
+    setMinimumSize(520, 640);
+    resize(560, 720);
 
-    connect(m_dm, &DataManager::accountChanged, this, &MainWindow::onAccountChanged);
-    connect(m_dm, &DataManager::allDataUpdated, this, &MainWindow::onAllDataUpdated);
-}
-
-void MainWindow::setupUI()
-{
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(12, 8, 12, 8);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    m_tabs = new QTabWidget();
-    m_tabs->addTab(createDetailTab(), tr("Detail"));
-    m_tabs->addTab(createAccountsTab(), tr("Accounts"));
-    m_tabs->addTab(createAppearanceTab(), tr("Appearance"));
-    m_tabs->addTab(createGeneralTab(), tr("General"));
-    mainLayout->addWidget(m_tabs);
-
-    connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
+    m_stack = new QStackedWidget();
+    m_stack->addWidget(createCardListPage());
+    m_stack->addWidget(createDetailPage());
+    mainLayout->addWidget(m_stack);
 }
 
-QWidget *MainWindow::createDetailTab()
+static QString bgName() { return Theme::bg.name(); }
+static QString sfName() { return Theme::surface.name(); }
+static QString saName() { return Theme::surfaceAlt.name(); }
+static QString txName() { return Theme::text.name(); }
+static QString tdName() { return Theme::textDim.name(); }
+static QString bdName() { return Theme::border.name(); }
+static QString acName() { return Theme::accent.name(); }
+
+static QColor pctColorValue(double pct)
+{
+    if (pct < 0) return Theme::textDim;
+    if (pct < 50) return Theme::accent;
+    if (pct < 80) return Theme::warning;
+    return Theme::danger;
+}
+
+static QString pctColor(double pct) { return pctColorValue(pct).name(); }
+static QString barChunkColor(int pct) { return pctColorValue(pct).name(); }
+
+QWidget *MainWindow::createCardListPage()
 {
     auto *page = new QWidget();
     auto *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(16, 12, 16, 12);
-    layout->setSpacing(10);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
-    auto *topBar = new QHBoxLayout();
-    topBar->setSpacing(10);
+    auto *header = new QFrame();
+    header->setFixedHeight(64);
+    header->setObjectName("listHeader");
+    header->setStyleSheet(
+        QString("QFrame#listHeader { background-color: %1; border-bottom: 1px solid %2; }").arg(bgName(), bdName()));
+    m_listHeader = header;
+    auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(20, 0, 16, 10);
 
-    auto *accountLabel = new QLabel(tr("Account:"));
-    accountLabel->setStyleSheet("font-weight: bold;");
-    topBar->addWidget(accountLabel);
+    m_headerTitle = new QLabel("TokenCheck");
+    m_headerTitle->setStyleSheet(
+        QString("font-size: 20px; font-weight: bold; color: %1;").arg(txName()));
+    headerLayout->addWidget(m_headerTitle, 0, Qt::AlignBottom);
 
-    m_accountCombo = new QComboBox();
-    m_accountCombo->setMinimumWidth(220);
-    topBar->addWidget(m_accountCombo);
-    topBar->addStretch();
+    m_headerSub = new QLabel();
+    m_headerSub->setStyleSheet(
+        QString("font-size: 12px; color: %1;").arg(tdName()));
+    headerLayout->addWidget(m_headerSub, 0, Qt::AlignBottom);
+    headerLayout->addStretch();
+
+    auto *settingsBtn = new QPushButton(QString::fromUtf8("\xe2\x9a\x99"));
+    settingsBtn->setFixedSize(36, 36);
+    settingsBtn->setStyleSheet(
+        QString("QPushButton { font-size: 18px; color: %1; border: none; border-radius: 8px; padding: 2px; }"
+                "QPushButton:hover { background-color: %2; color: %3; }")
+            .arg(tdName(), saName(), txName()));
+    m_settingsBtn = settingsBtn;
+    connect(settingsBtn, &QPushButton::clicked, this, &MainWindow::settingsRequested);
+    headerLayout->addWidget(settingsBtn, 0, Qt::AlignBottom);
+
+    layout->addWidget(header);
+
+    m_cardScroll = new QScrollArea();
+    m_cardScroll->setWidgetResizable(true);
+    m_cardScroll->setFrameShape(QFrame::NoFrame);
+    m_cardScroll->setStyleSheet(
+        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+
+    auto *container = new QWidget();
+    container->setStyleSheet(QString("background-color: %1;").arg(sfName()));
+    m_cardContainer = container;
+    m_cardLayout = new QVBoxLayout(container);
+    m_cardLayout->setContentsMargins(20, 16, 20, 16);
+    m_cardLayout->setSpacing(12);
+    m_cardLayout->addStretch();
+
+    m_cardScroll->setWidget(container);
+    layout->addWidget(m_cardScroll, 1);
+
+    auto *bottomBar = new QFrame();
+    bottomBar->setFixedHeight(72);
+    bottomBar->setObjectName("listBottomBar");
+    bottomBar->setStyleSheet(
+        QString("QFrame#listBottomBar { background-color: %1; border-top: 1px solid %2; }").arg(bgName(), bdName()));
+    m_listBottomBar = bottomBar;
+    auto *bottomLayout = new QHBoxLayout(bottomBar);
+    bottomLayout->setContentsMargins(20, 12, 20, 12);
 
     auto *refreshBtn = new QPushButton(tr("Refresh"));
     refreshBtn->setProperty("class", "primary");
-    topBar->addWidget(refreshBtn);
-    layout->addLayout(topBar);
+    refreshBtn->setStyleSheet(
+        QString("QPushButton { background-color: %1; color: %2; font-size: 15px; "
+                "font-weight: bold; border: none; border-radius: 10px; padding: 10px; }"
+                "QPushButton:hover { background-color: %3; }"
+                "QPushButton:pressed { background-color: %4; }")
+            .arg(acName(), bgName(), Theme::accentHover.name(), Theme::accentHover.name()));
+    m_refreshBtn = refreshBtn;
+    connect(refreshBtn, &QPushButton::clicked, this, [this, refreshBtn]() {
+        refreshBtn->setEnabled(false);
+        refreshBtn->setText(tr("Refreshing..."));
+        refreshBtn->setStyleSheet(
+            QString("QPushButton { background-color: %1; color: %2; font-size: 15px; "
+                    "font-weight: bold; border: none; border-radius: 10px; padding: 10px; }")
+                .arg(bdName(), tdName()));
+        emit refreshRequested();
+    });
+    bottomLayout->addWidget(refreshBtn);
 
-    connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshRequested);
-    connect(m_accountCombo, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &MainWindow::onComboBoxChanged);
+    layout->addWidget(bottomBar);
+
+    return page;
+}
+
+QWidget *MainWindow::createDetailPage()
+{
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    auto *header = new QFrame();
+    header->setFixedHeight(64);
+    header->setObjectName("detailHeader");
+    header->setStyleSheet(
+        QString("QFrame#detailHeader { background-color: %1; border-bottom: 1px solid %2; }").arg(bgName(), bdName()));
+    m_detailHeader = header;
+    auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(12, 0, 16, 0);
+    headerLayout->setSpacing(8);
+
+    auto *backWidget = new ClickableCard();
+    auto *backLayout = new QHBoxLayout(backWidget);
+    backLayout->setContentsMargins(8, 6, 12, 6);
+    backLayout->setSpacing(6);
+    auto *backIcon = new QLabel(QString::fromUtf8("\xe2\x86\x90"));
+    backIcon->setStyleSheet(QString("font-size: 18px; color: %1; border: none; background: transparent;").arg(tdName()));
+    backLayout->addWidget(backIcon);
+    auto *backText = new QLabel(tr("Back"));
+    backText->setStyleSheet(QString("font-size: 15px; color: %1; border: none; background: transparent;").arg(tdName()));
+    backLayout->addWidget(backText);
+    backWidget->setStyleSheet(
+        QString("ClickableCard { background: transparent; border: none; border-radius: 8px; }"
+                "ClickableCard:hover { background-color: %1; }")
+            .arg(saName()));
+    m_backWidget = backWidget;
+    backWidget->setCursor(Qt::PointingHandCursor);
+    backWidget->onClick = [this]() { onBackToList(); };
+
+    headerLayout->addWidget(backWidget);
+    headerLayout->addStretch();
+
+    layout->addWidget(header);
+
+    auto *scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setStyleSheet(
+        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+    m_detailScroll = scroll;
+    auto *container = new QWidget();
+    container->setStyleSheet(QString("background-color: %1;").arg(sfName()));
+    m_detailContainer = container;
+    auto *containerLayout = new QVBoxLayout(container);
+    containerLayout->setSpacing(14);
+    containerLayout->setContentsMargins(20, 16, 20, 16);
 
     m_statusLabel = new QLabel();
     m_timestampLabel = new QLabel();
     m_timestampLabel->setProperty("class", "dim");
     m_timestampLabel->setStyleSheet("font-size: 11px;");
 
-    auto *headerLayout = new QHBoxLayout();
-    headerLayout->addWidget(m_statusLabel);
-    headerLayout->addStretch();
-    headerLayout->addWidget(m_timestampLabel);
-    layout->addLayout(headerLayout);
-
-    auto *scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-    auto *container = new QWidget();
-    container->setStyleSheet("background-color: transparent;");
-    auto *containerLayout = new QVBoxLayout(container);
-    containerLayout->setSpacing(14);
-    containerLayout->setContentsMargins(0, 0, 0, 0);
+    auto *headerRow = new QHBoxLayout();
+    headerRow->addWidget(m_statusLabel);
+    headerRow->addStretch();
+    headerRow->addWidget(m_timestampLabel);
+    containerLayout->addLayout(headerRow);
 
     containerLayout->addWidget(createSummarySection());
     containerLayout->addWidget(createQuotaSection());
     containerLayout->addWidget(createModelSection());
     containerLayout->addWidget(createToolSection());
-
     containerLayout->addStretch();
+
     scroll->setWidget(container);
-    layout->addWidget(scroll);
+    layout->addWidget(scroll, 1);
 
     return page;
 }
 
-QWidget *MainWindow::createAccountsTab()
+void MainWindow::rebuildCards()
 {
-    auto *page = new QWidget();
-    auto *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(16, 12, 16, 12);
-    layout->setSpacing(8);
-
-    m_accountList = new QListWidget();
-    m_accountList->setMinimumHeight(160);
-    layout->addWidget(m_accountList, 1);
-
-    auto *btnRow = new QHBoxLayout();
-    btnRow->setSpacing(8);
-    auto *addBtn = new QPushButton(tr("Quick Add"));
-    addBtn->setProperty("class", "primary");
-    auto *editBtn = new QPushButton(tr("Edit"));
-    auto *removeBtn = new QPushButton(tr("Remove"));
-    removeBtn->setProperty("class", "danger");
-    btnRow->addWidget(addBtn);
-    btnRow->addWidget(editBtn);
-    btnRow->addWidget(removeBtn);
-    btnRow->addStretch();
-    layout->addLayout(btnRow);
-
-    connect(addBtn, &QPushButton::clicked, this, &MainWindow::onQuickAdd);
-    connect(editBtn, &QPushButton::clicked, this, &MainWindow::onEditAccount);
-    connect(removeBtn, &QPushButton::clicked, this, &MainWindow::onRemoveAccount);
-    connect(m_accountList, &QListWidget::itemDoubleClicked, this, &MainWindow::onEditAccount);
-
-    refreshAccountList();
-    return page;
-}
-
-QWidget *MainWindow::createAppearanceTab()
-{
-    auto *page = new QWidget();
-    auto *form = new QFormLayout(page);
-    form->setSpacing(12);
-    form->setContentsMargins(16, 16, 16, 16);
-
-    auto *themeGroup = new QGroupBox(tr("Theme"));
-    auto *themeForm = new QFormLayout(themeGroup);
-    themeForm->setSpacing(10);
-
-    m_themeCombo = new QComboBox();
-    m_themeCombo->addItem(tr("Dark"), 0);
-    m_themeCombo->addItem(tr("Light"), 1);
-    int tidx = m_themeCombo->findData(static_cast<int>(AppSettings::instance().themeId()));
-    if (tidx >= 0)
-        m_themeCombo->setCurrentIndex(tidx);
-    themeForm->addRow(tr("Color Theme:"), m_themeCombo);
-    connect(m_themeCombo, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &MainWindow::markDirty);
-
-    form->addRow(themeGroup);
-
-    auto *ballGroup = new QGroupBox(tr("Floating Ball"));
-    auto *ballForm = new QFormLayout(ballGroup);
-    ballForm->setSpacing(10);
-
-    m_ballSizeSpin = new QSpinBox();
-    m_ballSizeSpin->setRange(60, 150);
-    m_ballSizeSpin->setValue(AppSettings::instance().ballSize());
-    m_ballSizeSpin->setSuffix(" px");
-    ballForm->addRow(tr("Ball Size:"), m_ballSizeSpin);
-    connect(m_ballSizeSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    m_timeFontSpin = new QSpinBox();
-    m_timeFontSpin->setRange(0, 30);
-    m_timeFontSpin->setValue(AppSettings::instance().timeFontSize());
-    m_timeFontSpin->setSpecialValueText("Auto");
-    m_timeFontSpin->setSuffix(" px");
-    ballForm->addRow(tr("Time Font Size:"), m_timeFontSpin);
-    connect(m_timeFontSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    m_chosenTimeColor = AppSettings::instance().timeColor();
-    m_timeColorBtn = new QPushButton(m_chosenTimeColor.isValid() ? m_chosenTimeColor.name() : tr("Default"));
-    if (m_chosenTimeColor.isValid())
-        m_timeColorBtn->setStyleSheet(
-            QString("background-color: %1; color: #000; border-radius: 6px; min-height: 24px;").arg(m_chosenTimeColor.name()));
-    connect(m_timeColorBtn, &QPushButton::clicked, this, [this]() {
-        QColor initial = m_chosenTimeColor.isValid() ? m_chosenTimeColor : Qt::white;
-        QColor c = QColorDialog::getColor(initial, this, tr("Time Text Color"));
-        if (c.isValid()) {
-            m_chosenTimeColor = c;
-            m_timeColorBtn->setText(c.name());
-            m_timeColorBtn->setStyleSheet(
-                QString("background-color: %1; color: #000; border-radius: 6px; min-height: 24px;").arg(c.name()));
-            markDirty();
-        }
-    });
-    ballForm->addRow(tr("Time Color:"), m_timeColorBtn);
-
-    m_pctFontSpin = new QSpinBox();
-    m_pctFontSpin->setRange(0, 30);
-    m_pctFontSpin->setValue(AppSettings::instance().pctFontSize());
-    m_pctFontSpin->setSpecialValueText("Auto");
-    m_pctFontSpin->setSuffix(" px");
-    ballForm->addRow(tr("% Font Size:"), m_pctFontSpin);
-    connect(m_pctFontSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    m_chosenPctColor = AppSettings::instance().pctColor();
-    m_pctColorBtn = new QPushButton(m_chosenPctColor.isValid() ? m_chosenPctColor.name() : tr("Default (White)"));
-    if (m_chosenPctColor.isValid())
-        m_pctColorBtn->setStyleSheet(
-            QString("background-color: %1; color: #000; border-radius: 6px; min-height: 24px;").arg(m_chosenPctColor.name()));
-    connect(m_pctColorBtn, &QPushButton::clicked, this, [this]() {
-        QColor initial = m_chosenPctColor.isValid() ? m_chosenPctColor : Qt::white;
-        QColor c = QColorDialog::getColor(initial, this, tr("Percent Text Color"));
-        if (c.isValid()) {
-            m_chosenPctColor = c;
-            m_pctColorBtn->setText(c.name());
-            m_pctColorBtn->setStyleSheet(
-                QString("background-color: %1; color: #000; border-radius: 6px; min-height: 24px;").arg(c.name()));
-            markDirty();
-        }
-    });
-    ballForm->addRow(tr("% Color:"), m_pctColorBtn);
-
-    form->addRow(ballGroup);
-
-    auto *applyBtn = new QPushButton(tr("Apply"));
-    applyBtn->setProperty("class", "primary");
-    applyBtn->setFixedWidth(120);
-    connect(applyBtn, &QPushButton::clicked, this, &MainWindow::applySettings);
-    auto *applyRow = new QHBoxLayout();
-    applyRow->addStretch();
-    applyRow->addWidget(applyBtn);
-    form->addRow(applyRow);
-
-    return page;
-}
-
-QWidget *MainWindow::createGeneralTab()
-{
-    auto *page = new QWidget();
-    auto *mainForm = new QVBoxLayout(page);
-    mainForm->setSpacing(14);
-    mainForm->setContentsMargins(16, 16, 16, 16);
-
-    auto *langGroup = new QGroupBox(tr("Language"));
-    auto *langForm = new QFormLayout(langGroup);
-    langForm->setSpacing(10);
-
-    m_langCombo = new QComboBox();
-    m_langCombo->addItem(tr("System Default"), QString());
-    m_langCombo->addItem("English", "en");
-    m_langCombo->addItem(QString::fromUtf8("\xe7\xae\x80\xe4\xbd\x93\xe4\xb8\xad\xe6\x96\x87"), "zh_CN");
-    QString curLang = AppSettings::instance().language();
-    int lidx = m_langCombo->findData(curLang);
-    if (lidx >= 0)
-        m_langCombo->setCurrentIndex(lidx);
-    langForm->addRow(tr("Interface Language:"), m_langCombo);
-    connect(m_langCombo, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &MainWindow::markDirty);
-
-    auto *langHint = new QLabel(tr("Language change takes effect after restart."));
-    langHint->setProperty("class", "dim");
-    langHint->setStyleSheet("font-size: 11px;");
-    langForm->addRow(QString(), langHint);
-
-    mainForm->addWidget(langGroup);
-
-    auto *refreshGroup = new QGroupBox(tr("Refresh && Startup"));
-    auto *refreshForm = new QFormLayout(refreshGroup);
-    refreshForm->setSpacing(10);
-
-    m_intervalSpin = new QSpinBox();
-    m_intervalSpin->setRange(1, 120);
-    m_intervalSpin->setValue(AppSettings::instance().autoRefreshInterval());
-    m_intervalSpin->setSuffix(" min");
-    refreshForm->addRow(tr("Refresh Interval:"), m_intervalSpin);
-    connect(m_intervalSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    m_autoStartCheck = new QCheckBox(tr("Auto start on login"));
-    m_autoStartCheck->setChecked(AppSettings::instance().autoStart());
-    refreshForm->addRow(QString(), m_autoStartCheck);
-    connect(m_autoStartCheck, &QCheckBox::toggled, this, &MainWindow::markDirty);
-
-    m_notifySpin = new QSpinBox();
-    m_notifySpin->setRange(1, 50);
-    m_notifySpin->setValue(AppSettings::instance().notifyThreshold());
-    m_notifySpin->setSuffix(" %");
-    refreshForm->addRow(tr("Notify below:"), m_notifySpin);
-    connect(m_notifySpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    mainForm->addWidget(refreshGroup);
-
-    auto *hotkeyGroup = new QGroupBox(tr("Hotkeys"));
-    auto *hotkeyForm = new QFormLayout(hotkeyGroup);
-    hotkeyForm->setSpacing(10);
-
-    auto *toggleRow = new QHBoxLayout();
-    toggleRow->setSpacing(8);
-    m_toggleHotkeyBtn = new HotkeyButton();
-    m_toggleHotkeyBtn->setKeySequence(AppSettings::instance().hotkeyToggle());
-    toggleRow->addWidget(m_toggleHotkeyBtn);
-    auto *clearToggle = new QPushButton(tr("Clear"));
-    clearToggle->setFixedWidth(60);
-    toggleRow->addWidget(clearToggle);
-    connect(clearToggle, &QPushButton::clicked, this, [this]() {
-        m_toggleHotkeyBtn->setKeySequence(QString());
-        markDirty();
-    });
-    hotkeyForm->addRow(tr("Toggle ball:"), toggleRow);
-
-    auto *refreshRow = new QHBoxLayout();
-    refreshRow->setSpacing(8);
-    m_refreshHotkeyBtn = new HotkeyButton();
-    m_refreshHotkeyBtn->setKeySequence(AppSettings::instance().hotkeyRefresh());
-    refreshRow->addWidget(m_refreshHotkeyBtn);
-    auto *clearRefresh = new QPushButton(tr("Clear"));
-    clearRefresh->setFixedWidth(60);
-    refreshRow->addWidget(clearRefresh);
-    connect(clearRefresh, &QPushButton::clicked, this, [this]() {
-        m_refreshHotkeyBtn->setKeySequence(QString());
-        markDirty();
-    });
-    hotkeyForm->addRow(tr("Refresh:"), refreshRow);
-
-    mainForm->addWidget(hotkeyGroup);
-
-    auto *proxyGroup = new QGroupBox(tr("Proxy"));
-    auto *proxyForm = new QFormLayout(proxyGroup);
-    proxyForm->setSpacing(10);
-
-    m_proxyTypeCombo = new QComboBox();
-    m_proxyTypeCombo->addItem(tr("No Proxy"), 0);
-    m_proxyTypeCombo->addItem("HTTP", 1);
-    m_proxyTypeCombo->addItem("SOCKS5", 2);
-    int pidx = m_proxyTypeCombo->findData(AppSettings::instance().proxyType());
-    if (pidx >= 0)
-        m_proxyTypeCombo->setCurrentIndex(pidx);
-    proxyForm->addRow(tr("Type:"), m_proxyTypeCombo);
-    connect(m_proxyTypeCombo, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &MainWindow::markDirty);
-
-    m_proxyHostEdit = new QLineEdit(AppSettings::instance().proxyHost());
-    proxyForm->addRow(tr("Host:"), m_proxyHostEdit);
-    connect(m_proxyHostEdit, &QLineEdit::textChanged, this, &MainWindow::markDirty);
-
-    m_proxyPortSpin = new QSpinBox();
-    m_proxyPortSpin->setRange(0, 65535);
-    m_proxyPortSpin->setValue(AppSettings::instance().proxyPort());
-    proxyForm->addRow(tr("Port:"), m_proxyPortSpin);
-    connect(m_proxyPortSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &MainWindow::markDirty);
-
-    mainForm->addWidget(proxyGroup);
-
-    auto *applyBtn = new QPushButton(tr("Apply"));
-    applyBtn->setProperty("class", "primary");
-    applyBtn->setFixedWidth(120);
-    connect(applyBtn, &QPushButton::clicked, this, &MainWindow::applySettings);
-    auto *applyRow = new QHBoxLayout();
-    applyRow->addStretch();
-    applyRow->addWidget(applyBtn);
-    mainForm->addLayout(applyRow);
-
-    mainForm->addStretch();
-
-    return page;
-}
-
-void MainWindow::showTab(int index)
-{
-    if (index >= 0 && index < m_tabs->count())
-        m_tabs->setCurrentIndex(index);
-    show();
-    raise();
-    activateWindow();
-}
-
-void MainWindow::closeEvent(QCloseEvent *event)
-{
-    if (m_settingsDirty) {
-        auto reply = QMessageBox::question(this, tr("Unsaved Changes"),
-                                           tr("Save settings before closing?"),
-                                           QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-        if (reply == QMessageBox::Cancel) {
-            event->ignore();
-            return;
-        }
-        if (reply == QMessageBox::Yes)
-            applySettings();
-        else
-            reloadSettings();
+    while (m_cardLayout->count() > 1) {
+        auto *item = m_cardLayout->takeAt(0);
+        if (item->widget())
+            delete item->widget();
+        delete item;
     }
-    event->accept();
-}
 
-void MainWindow::onTabChanged(int index)
-{
-    if (m_previousTab >= 1 && m_previousTab <= 3 && m_settingsDirty) {
-        auto reply = QMessageBox::question(this, tr("Unsaved Changes"),
-                                           tr("Save settings changes?"),
-                                           QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-        if (reply == QMessageBox::Cancel) {
-            m_tabs->blockSignals(true);
-            m_tabs->setCurrentIndex(m_previousTab);
-            m_tabs->blockSignals(false);
-            return;
-        }
-        if (reply == QMessageBox::Yes)
-            applySettings();
-        else
-            reloadSettings();
+    auto platforms = AppSettings::instance().allPlatforms();
+    QStringList names;
+    for (const auto &p : platforms)
+        names.append(p.name);
+
+    int connected = 0;
+    for (const auto &n : names) {
+        UsageData d = m_dm->data(n);
+        if (d.isValid) connected++;
     }
-    m_previousTab = index;
-}
+    m_headerSub->setText(tr("Connected %1/%2").arg(connected).arg(names.size()));
 
-bool MainWindow::checkSaveOnLeave()
-{
-    if (!m_settingsDirty)
-        return true;
-    auto reply = QMessageBox::question(this, tr("Unsaved Changes"),
-                                       tr("Save settings changes?"),
-                                       QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-    if (reply == QMessageBox::Cancel)
-        return false;
-    if (reply == QMessageBox::Yes)
-        applySettings();
-    else
-        reloadSettings();
-    return true;
-}
+    if (names.isEmpty()) {
+        auto *emptyCard = new QFrame();
+        emptyCard->setStyleSheet(
+            QString("QFrame { background-color: %1; border: 1px solid %2; border-radius: 14px; }")
+                .arg(bgName(), bdName()));
+        auto *emptyLayout = new QVBoxLayout(emptyCard);
+        emptyLayout->setContentsMargins(20, 24, 20, 24);
+        emptyLayout->setAlignment(Qt::AlignCenter);
 
-void MainWindow::markDirty()
-{
-    m_settingsDirty = true;
-}
+        auto *emptyText = new QLabel(tr("No platform data"));
+        emptyText->setStyleSheet(QString("color: %1; font-size: 15px; background: transparent;").arg(tdName()));
+        emptyText->setAlignment(Qt::AlignCenter);
+        emptyLayout->addWidget(emptyText);
 
-void MainWindow::applySettings()
-{
-    AppSettings::instance().setAutoRefreshInterval(m_intervalSpin->value());
-    AppSettings::instance().setBallSize(m_ballSizeSpin->value());
-    AppSettings::instance().setTimeFontSize(m_timeFontSpin->value());
-    AppSettings::instance().setTimeColor(m_chosenTimeColor);
-    AppSettings::instance().setPctFontSize(m_pctFontSpin->value());
-    AppSettings::instance().setPctColor(m_chosenPctColor);
-    AppSettings::instance().setAutoStart(m_autoStartCheck->isChecked());
-    AppSettings::instance().setNotifyThreshold(m_notifySpin->value());
-    AppSettings::instance().setHotkeyToggle(m_toggleHotkeyBtn->keySequence());
-    AppSettings::instance().setHotkeyRefresh(m_refreshHotkeyBtn->keySequence());
-    AppSettings::instance().setProxyType(m_proxyTypeCombo->currentData().toInt());
-    AppSettings::instance().setProxyHost(m_proxyHostEdit->text().trimmed());
-    AppSettings::instance().setProxyPort(m_proxyPortSpin->value());
-    AppSettings::instance().setThemeId(
-        m_themeCombo->currentData().toInt() == 1 ? ThemeId::Light : ThemeId::Dark);
-    AppSettings::instance().setLanguage(m_langCombo->currentData().toString());
+        auto *hintText = new QLabel(tr("Click the gear icon to add a platform"));
+        hintText->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent;").arg(tdName()));
+        hintText->setAlignment(Qt::AlignCenter);
+        emptyLayout->addWidget(hintText);
 
-    m_settingsDirty = false;
-    emit settingsApplied();
-}
+        m_cardLayout->insertWidget(m_cardLayout->count() - 1, emptyCard);
+        return;
+    }
 
-void MainWindow::reloadSettings()
-{
-    m_themeCombo->blockSignals(true);
-    m_ballSizeSpin->blockSignals(true);
-    m_timeFontSpin->blockSignals(true);
-    m_pctFontSpin->blockSignals(true);
-    m_intervalSpin->blockSignals(true);
-    m_autoStartCheck->blockSignals(true);
-    m_notifySpin->blockSignals(true);
-    m_toggleHotkeyBtn->blockSignals(true);
-    m_refreshHotkeyBtn->blockSignals(true);
-    m_proxyTypeCombo->blockSignals(true);
-    m_proxyHostEdit->blockSignals(true);
-    m_proxyPortSpin->blockSignals(true);
-    m_langCombo->blockSignals(true);
+    for (const auto &name : names) {
+        UsageData d = m_dm->data(name);
+        auto *card = new ClickableCard();
+        QString bgColor = d.isValid ? bgName() : sfName();
+        QString borderColor = d.isValid ? bdName() : Theme::danger.name();
+        card->setObjectName("accountCard");
+        card->setStyleSheet(
+            QString("QFrame#accountCard { background-color: %1; border: 1px solid %2; border-radius: 14px; }"
+                    "QFrame#accountCard:hover { border-color: %3; }")
+                .arg(bgColor, borderColor, acName()));
+        card->setCursor(Qt::PointingHandCursor);
 
-    int tidx = m_themeCombo->findData(static_cast<int>(AppSettings::instance().themeId()));
-    if (tidx >= 0) m_themeCombo->setCurrentIndex(tidx);
-    m_ballSizeSpin->setValue(AppSettings::instance().ballSize());
-    m_timeFontSpin->setValue(AppSettings::instance().timeFontSize());
-    m_pctFontSpin->setValue(AppSettings::instance().pctFontSize());
-    m_intervalSpin->setValue(AppSettings::instance().autoRefreshInterval());
-    m_autoStartCheck->setChecked(AppSettings::instance().autoStart());
-    m_notifySpin->setValue(AppSettings::instance().notifyThreshold());
-    m_toggleHotkeyBtn->setKeySequence(AppSettings::instance().hotkeyToggle());
-    m_refreshHotkeyBtn->setKeySequence(AppSettings::instance().hotkeyRefresh());
-    int pidx = m_proxyTypeCombo->findData(AppSettings::instance().proxyType());
-    if (pidx >= 0) m_proxyTypeCombo->setCurrentIndex(pidx);
-    m_proxyHostEdit->setText(AppSettings::instance().proxyHost());
-    m_proxyPortSpin->setValue(AppSettings::instance().proxyPort());
-    int lidx = m_langCombo->findData(AppSettings::instance().language());
-    if (lidx >= 0) m_langCombo->setCurrentIndex(lidx);
+        auto *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(20, 16, 20, 16);
+        cardLayout->setSpacing(10);
 
-    m_chosenTimeColor = AppSettings::instance().timeColor();
-    m_chosenPctColor = AppSettings::instance().pctColor();
+        auto *topRow = new QHBoxLayout();
+        topRow->setSpacing(8);
 
-    m_themeCombo->blockSignals(false);
-    m_ballSizeSpin->blockSignals(false);
-    m_timeFontSpin->blockSignals(false);
-    m_pctFontSpin->blockSignals(false);
-    m_intervalSpin->blockSignals(false);
-    m_autoStartCheck->blockSignals(false);
-    m_notifySpin->blockSignals(false);
-    m_toggleHotkeyBtn->blockSignals(false);
-    m_refreshHotkeyBtn->blockSignals(false);
-    m_proxyTypeCombo->blockSignals(false);
-    m_proxyHostEdit->blockSignals(false);
-    m_proxyPortSpin->blockSignals(false);
-    m_langCombo->blockSignals(false);
+        auto *nameLabel = new QLabel(name);
+        nameLabel->setStyleSheet(QString("font-size: 16px; font-weight: bold; color: %1; background: transparent;").arg(txName()));
+        topRow->addWidget(nameLabel);
+        topRow->addStretch();
 
-    m_settingsDirty = false;
+        auto *statusBadge = new QLabel(d.isValid ? tr("Connected") : tr("Error"));
+        statusBadge->setAlignment(Qt::AlignCenter);
+        statusBadge->setStyleSheet(
+            d.isValid
+                ? QString("background-color: #1A3A2A; color: %1; font-size: 11px; font-weight: bold; "
+                          "border-radius: 6px; padding: 2px 10px;").arg(Theme::accent.name())
+                : QString("background-color: #3A1A1A; color: %1; font-size: 11px; font-weight: bold; "
+                          "border-radius: 6px; padding: 2px 10px;").arg(Theme::danger.name()));
+        statusBadge->setFixedHeight(22);
+        topRow->addWidget(statusBadge);
+        cardLayout->addLayout(topRow);
+
+        if (d.isValid) {
+            bool isDeepSeek = (d.platformType == "deepseek");
+
+            if (isDeepSeek) {
+                auto *balRow = new QHBoxLayout();
+                auto *balLbl = new QLabel(tr("Balance"));
+                balLbl->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(tdName()));
+                balRow->addWidget(balLbl);
+
+                auto *balVal = new QLabel();
+                double bal = d.balanceTotal();
+                balVal->setStyleSheet(QString("font-size: 15px; font-weight: bold; color: %1; background: transparent;")
+                                          .arg(bal > 10 ? Theme::accent.name() : (bal > 1 ? Theme::warning.name() : Theme::danger.name())));
+                balVal->setText(bal >= 0 ? QString("%1 %2").arg(bal, 0, 'f', 2).arg(d.balanceCurrency()) : "--");
+                balRow->addWidget(balVal);
+                balRow->addStretch();
+                cardLayout->addLayout(balRow);
+            } else {
+                auto makeProgressBar = [this](QVBoxLayout *cardLayout, const QString &label, double pct) {
+                    auto *row = new QHBoxLayout();
+                    row->setSpacing(8);
+                    auto *lbl = new QLabel(label);
+                    lbl->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(tdName()));
+                    lbl->setFixedWidth(50);
+                    row->addWidget(lbl);
+
+                    auto *bar = new Progressbar();
+                    bar->setPercentage(pct);
+                    row->addWidget(bar, 1);
+
+                    auto *val = new QLabel(pct >= 0 ? QString("%1%").arg(qRound(pct)) : "--");
+                    val->setStyleSheet(QString("font-size: 12px; font-weight: bold; color: %1; background: transparent;").arg(pctColor(pct)));
+                    val->setFixedWidth(42);
+                    val->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                    row->addWidget(val);
+                    cardLayout->addLayout(row);
+                };
+
+                makeProgressBar(cardLayout, "Token", d.tokenPercentage());
+                makeProgressBar(cardLayout, "MCP", d.mcpPercentage());
+            }
+
+            auto *sep = new QFrame();
+            sep->setFrameShape(QFrame::HLine);
+            sep->setFixedHeight(1);
+            sep->setStyleSheet(QString("background-color: %1; border: none;").arg(bdName()));
+            cardLayout->addWidget(sep);
+
+            auto *bottomRow = new QHBoxLayout();
+            QString extra;
+            if (isDeepSeek) {
+                extra = tr("View Details");
+            } else {
+                extra = tr("Reset") + " " + (d.tokenResetTime().isEmpty() ? "--" : d.tokenResetTime());
+            }
+            auto *extraLbl = new QLabel(extra);
+            extraLbl->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(tdName()));
+            bottomRow->addWidget(extraLbl);
+            bottomRow->addStretch();
+            cardLayout->addLayout(bottomRow);
+        } else {
+            auto *errLabel = new QLabel(d.errorMsg);
+            errLabel->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent;").arg(Theme::danger.name()));
+            errLabel->setWordWrap(true);
+            cardLayout->addWidget(errLabel);
+        }
+
+        QString capturedName = name;
+        card->onClick = [this, capturedName]() {
+            showDetail(capturedName);
+        };
+
+        m_cardLayout->insertWidget(m_cardLayout->count() - 1, card);
+    }
 }
 
 QWidget *MainWindow::createQuotaSection()
@@ -604,11 +461,12 @@ QWidget *MainWindow::createSummarySection()
         auto *card = new QFrame();
         card->setProperty("class", "stat-card");
         card->setStyleSheet(
-            "QFrame[class=\"stat-card\"] {"
-            "  background-color: #2A2A3C;"
-            "  border: 1px solid #45475A;"
-            "  border-radius: 8px;"
-            "}");
+            QString("QFrame#statCard {"
+                    "  background-color: %1;"
+                    "  border: 1px solid %2;"
+                    "  border-radius: 8px;"
+                    "}").arg(sfName(), bdName()));
+        card->setObjectName("statCard");
         auto *vlayout = new QVBoxLayout(card);
         vlayout->setContentsMargins(12, 10, 12, 10);
         vlayout->setSpacing(2);
@@ -670,142 +528,57 @@ QWidget *MainWindow::createToolSection()
     return group;
 }
 
-void MainWindow::syncWithDataManager()
+void MainWindow::showCardList()
 {
-    populateAccounts();
-    QString cur = m_dm->currentAccount();
-    if (!cur.isEmpty()) {
-        UsageData d = m_dm->data(cur);
-        displayData(d);
-    } else {
-        displayEmpty();
-    }
+    m_stack->setCurrentIndex(PAGE_LIST);
+    show();
+    raise();
+    activateWindow();
 }
 
-void MainWindow::populateAccounts()
+void MainWindow::showDetail(const QString &accountName)
 {
-    m_accountCombo->blockSignals(true);
-    QString cur = m_dm->currentAccount();
-    m_accountCombo->clear();
-    auto names = m_dm->accountNames();
-    for (const auto &n : names)
-        m_accountCombo->addItem(n);
-    int idx = m_accountCombo->findText(cur);
-    if (idx >= 0)
-        m_accountCombo->setCurrentIndex(idx);
-    m_accountCombo->blockSignals(false);
+    m_detailAccount = accountName;
+    UsageData d = m_dm->data(accountName);
+    displayData(d);
+    m_stack->setCurrentIndex(PAGE_DETAIL);
+    show();
+    raise();
+    activateWindow();
 }
 
-void MainWindow::onAccountChanged(const QString &name)
+void MainWindow::onBackToList()
 {
-    populateAccounts();
-    if (!name.isEmpty())
-        displayData(m_dm->data(name));
-}
-
-void MainWindow::onComboBoxChanged(int index)
-{
-    if (index < 0 || index >= m_accountCombo->count())
-        return;
-    QString name = m_accountCombo->itemText(index);
-    m_dm->setCurrentAccount(name);
+    showCardList();
 }
 
 void MainWindow::onAllDataUpdated()
 {
-    populateAccounts();
-    QString cur = m_dm->currentAccount();
-    if (!cur.isEmpty())
-        displayData(m_dm->data(cur));
-}
+    m_refreshBtn->setEnabled(true);
+    m_refreshBtn->setText(tr("Refresh"));
+    m_refreshBtn->setStyleSheet(
+        QString("QPushButton { background-color: %1; color: %2; font-size: 15px; "
+                "font-weight: bold; border: none; border-radius: 10px; padding: 10px; }"
+                "QPushButton:hover { background-color: %3; }"
+                "QPushButton:pressed { background-color: %3; }")
+            .arg(acName(), bgName(), Theme::accentHover.name()));
 
-void MainWindow::refreshAccountList()
-{
-    m_accountList->clear();
-    auto platforms = AppSettings::instance().allPlatforms();
-    for (int i = 0; i < platforms.size(); i++) {
-        const auto &p = platforms[i];
-
-        QString dot = p.enabled
-            ? QString::fromUtf8("\xe2\x97\x8f")
-            : QString::fromUtf8("\xe2\x97\x8b");
-
-        QString line1 = QString("%1 %2 [%3]").arg(dot, p.name, p.platformType);
-        if (!p.enabled)
-            line1 += " (" + tr("Disabled") + ")";
-
-        auto *item = new QListWidgetItem();
-        item->setData(Qt::UserRole, i);
-        item->setText(line1);
-        if (!p.enabled)
-            item->setForeground(QColor(108, 112, 134));
-        m_accountList->addItem(item);
+    rebuildCards();
+    if (m_stack->currentIndex() == PAGE_DETAIL && !m_detailAccount.isEmpty()) {
+        UsageData d = m_dm->data(m_detailAccount);
+        displayData(d);
     }
-}
-
-void MainWindow::onQuickAdd()
-{
-    QuickAddDialog dlg(this);
-    if (dlg.exec() == QDialog::Accepted) {
-        PlatformConfig pc = dlg.getConfig();
-        if (pc.name.isEmpty() || pc.authToken.isEmpty()) {
-            QMessageBox::warning(this, tr("Warning"), tr("Name and Token are required."));
-            return;
-        }
-        AppSettings::instance().addPlatform(pc);
-        refreshAccountList();
-    }
-}
-
-void MainWindow::onEditAccount()
-{
-    auto *current = m_accountList->currentItem();
-    if (!current)
-        return;
-    int idx = current->data(Qt::UserRole).toInt();
-    PlatformConfig config = AppSettings::instance().platformAt(idx);
-
-    AccountEditDialog dlg(config, this);
-    if (dlg.exec() == QDialog::Accepted) {
-        AppSettings::instance().setPlatform(idx, dlg.getConfig());
-        refreshAccountList();
-    }
-}
-
-void MainWindow::onRemoveAccount()
-{
-    auto *current = m_accountList->currentItem();
-    if (!current)
-        return;
-    int idx = current->data(Qt::UserRole).toInt();
-    PlatformConfig config = AppSettings::instance().platformAt(idx);
-    auto reply = QMessageBox::question(this, tr("Remove Account"),
-                                       tr("Remove \"%1\"?").arg(config.name),
-                                       QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        AppSettings::instance().removePlatform(idx);
-        refreshAccountList();
-    }
-}
-
-static QString barChunkColor(int usedPct)
-{
-    if (usedPct < 50)
-        return "#2ECC71";
-    if (usedPct < 80)
-        return "#F1C40F";
-    return "#E74C3C";
 }
 
 void MainWindow::displayData(const UsageData &data)
 {
     if (!data.isValid) {
         m_statusLabel->setText(QString::fromUtf8("\xe2\x97\x8f ") + data.platformName + ": " + data.errorMsg);
-        m_statusLabel->setStyleSheet("color: #E74C3C; font-weight: bold;");
+        m_statusLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(Theme::danger.name()));
         return;
     }
     m_statusLabel->setText(QString::fromUtf8("\xe2\x97\x8f ") + data.platformName + " [" + data.platformType + "] OK");
-    m_statusLabel->setStyleSheet("color: #2ECC71; font-weight: bold;");
+    m_statusLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(Theme::accent.name()));
 
     QDateTime lastUpdate = m_dm->lastUpdateTime();
     if (lastUpdate.isValid())
@@ -910,11 +683,6 @@ void MainWindow::displayEmpty()
     m_statusLabel->setText("--");
     m_statusLabel->setStyleSheet("");
     m_timestampLabel->clear();
-    m_tokenRow->setVisible(true);
-    m_resetRow->setVisible(true);
-    m_mcpRow->setVisible(true);
-    m_mcpDetailRow->setVisible(true);
-    m_balanceRow->setVisible(true);
     m_tokenBar->setValue(0);
     m_tokenLabel->setText("--");
     m_resetLabel->setText("--");
@@ -939,4 +707,42 @@ QString MainWindow::formatTokens(qint64 n) const
     if (n >= 1000)
         return QString::number(n / 1000.0, 'f', 1) + "K";
     return QString::number(n);
+}
+
+void MainWindow::refreshTheme()
+{
+    m_listHeader->setStyleSheet(
+        QString("QFrame#listHeader { background-color: %1; border-bottom: 1px solid %2; }").arg(bgName(), bdName()));
+    m_listBottomBar->setStyleSheet(
+        QString("QFrame#listBottomBar { background-color: %1; border-top: 1px solid %2; }").arg(bgName(), bdName()));
+    m_headerTitle->setStyleSheet(QString("font-size: 20px; font-weight: bold; color: %1;").arg(txName()));
+    m_headerSub->setStyleSheet(QString("font-size: 12px; color: %1;").arg(tdName()));
+    m_settingsBtn->setStyleSheet(
+        QString("QPushButton { font-size: 18px; color: %1; border: none; border-radius: 8px; padding: 2px; }"
+                "QPushButton:hover { background-color: %2; color: %3; }")
+            .arg(tdName(), saName(), txName()));
+    m_refreshBtn->setStyleSheet(
+        QString("QPushButton { background-color: %1; color: %2; font-size: 15px; "
+                "font-weight: bold; border: none; border-radius: 10px; padding: 10px; }"
+                "QPushButton:hover { background-color: %3; }"
+                "QPushButton:pressed { background-color: %3; }")
+            .arg(acName(), bgName(), Theme::accentHover.name()));
+    m_cardScroll->setStyleSheet(
+        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+    m_cardContainer->setStyleSheet(QString("background-color: %1;").arg(sfName()));
+
+    m_detailHeader->setStyleSheet(
+        QString("QFrame#detailHeader { background-color: %1; border-bottom: 1px solid %2; }").arg(bgName(), bdName()));
+    m_backWidget->setStyleSheet(
+        QString("ClickableCard { background: transparent; border: none; border-radius: 8px; }"
+                "ClickableCard:hover { background-color: %1; }")
+            .arg(saName()));
+    m_detailScroll->setStyleSheet(
+        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+    m_detailContainer->setStyleSheet(QString("background-color: %1;").arg(sfName()));
+    m_timestampLabel->setStyleSheet("font-size: 11px;");
+
+    rebuildCards();
+    if (m_stack->currentIndex() == PAGE_DETAIL && !m_detailAccount.isEmpty())
+        displayData(m_dm->data(m_detailAccount));
 }

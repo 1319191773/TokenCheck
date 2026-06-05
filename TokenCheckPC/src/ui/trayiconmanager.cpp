@@ -152,10 +152,11 @@ void TrayIconManager::onQueryNow()
 
 void TrayIconManager::onShowDetail()
 {
-    m_window->showTab(0);
+    m_window->showCardList();
 }
 
 void TrayIconManager::showSettingsTab()
 {
-    m_window->showTab(1);
+    m_window->showCardList();
+    emit settingsChanged();
 }

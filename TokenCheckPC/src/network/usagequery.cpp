@@ -6,6 +6,8 @@
 #include <QJsonDocument>
 #include <QUrl>
 #include <QNetworkProxy>
+#include <QSslSocket>
+#include <QSslConfiguration>
 
 double UsageData::tokenPercentage() const
 {
@@ -266,6 +268,14 @@ void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QStri
 
     QNetworkReply *reply = m_manager->get(request);
     m_pendingReplies.append(reply);
+
+    connect(reply, &QNetworkReply::sslErrors, this,
+            [reply](const QList<QSslError> &errors) {
+                qWarning() << "SSL Errors:";
+                for (const auto &e : errors)
+                    qWarning() << "  " << e.errorString();
+                reply->ignoreSslErrors();
+            });
 
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, pq, path, query, handler, endpointIndex, retry]() {

@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <QMouseEvent>
 #include <QWheelEvent>
-#include <QContextMenuEvent>
 #include <QTimer>
 #include <QPropertyAnimation>
 #include "usagequery.h"
@@ -27,9 +26,6 @@ public:
 signals:
     void singleClicked();
     void doubleClicked();
-    void quitRequested();
-    void settingsRequested();
-    void detailRequested();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -37,17 +33,14 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
     void enterEvent(QEvent *event) override;
     void leaveEvent(QEvent *event) override;
-    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private slots:
     void onSingleClickTimeout();
     void onPulseTick();
     void onSnapCheck();
     void onLoadingTick();
-    void onTooltipTimeout();
     void onAccountChanged(const QString &name);
     void onAllDataUpdated();
 
@@ -88,14 +81,10 @@ private:
     QTimer *m_loadingTimer;
     qreal m_loadingAngle;
 
-    QTimer *m_tooltipTimer;
-
     QPropertyAnimation *m_snapAnim;
     bool m_animating;
 
     static const int SNAP_THRESHOLD = 20;
-    static const int HOTKEY_TOGGLE = 1;
-    static const int HOTKEY_REFRESH = 2;
 };
 
 #endif

@@ -23,7 +23,7 @@ void PlatformRegistry::init()
         return;
 
     r.registerPlatform(
-        {"glm", tr("ZhiPu GLM"), "https://open.bigmodel.cn", "/api/monitor/usage",
+        {"glm", tr("ZhiPu Coding Plan"), "https://open.bigmodel.cn", "/api/monitor/usage",
          {{"Token", "token", true}, {"MCP", "mcp", true}, {"Reset", "time", true}}},
         new GlmHandler());
 

@@ -2,6 +2,7 @@
 #include "ui/mainwindow.h"
 #include "ui/globalhotkey.h"
 #include "ui/trayiconmanager.h"
+#include "ui/settingsdialog.h"
 #include "ui/theme.h"
 #include "network/usagequery.h"
 #include "core/appsettings.h"
@@ -13,6 +14,7 @@
 #include <QTranslator>
 #include <QLocale>
 #include <QFile>
+#include <QSslSocket>
 
 static void loadTranslation(const QString &lang)
 {
@@ -52,10 +54,15 @@ int main(int argc, char *argv[])
     Theme::setTheme(AppSettings::instance().themeId());
     app.setStyleSheet(Theme::globalStyleSheet());
 
-    if (!QSystemTrayIcon::isSystemTrayAvailable()) {
-        QMessageBox::critical(nullptr, QObject::tr("Error"),
-                              QObject::tr("System tray is not available."));
-        return 1;
+    if (!QSslSocket::supportsSsl()) {
+        QMessageBox::warning(nullptr, QObject::tr("SSL Warning"),
+                             QObject::tr("SSL is not available. HTTPS requests will fail.\n"
+                                         "Please ensure libssl-1_1-x64.dll and libcrypto-1_1-x64.dll "
+                                         "are in the application directory.\n\n"
+                                         "SSL version: %1")
+                                 .arg(QSslSocket::sslLibraryVersionString()));
+    } else {
+        qInfo() << "SSL OK:" << QSslSocket::sslLibraryVersionString();
     }
 
     PlatformRegistry::init();
@@ -64,6 +71,7 @@ int main(int argc, char *argv[])
     MainWindow window;
     UsageQuery query;
     GlobalHotkey hotkey;
+    SettingsDialog settingsDlg;
 
     QObject::connect(&query, &UsageQuery::queryFinished,
                      &DataManager::instance(), &DataManager::setUsageData);
@@ -86,29 +94,34 @@ int main(int argc, char *argv[])
     QObject::connect(&ball, &FloatingBall::singleClicked, &query,
                      &UsageQuery::query);
     QObject::connect(&ball, &FloatingBall::doubleClicked, &window,
-                     [&window]() { window.showTab(0); });
-    QObject::connect(&ball, &FloatingBall::detailRequested, &window,
-                     [&window]() { window.showTab(0); });
+                     [&window]() { window.showCardList(); });
 
     TrayIconManager tray(&ball, &window, &query);
-    QObject::connect(&ball, &FloatingBall::settingsRequested,
-                     &tray, &TrayIconManager::showSettingsTab);
-    QObject::connect(&ball, &FloatingBall::quitRequested, &app,
-                     &QApplication::quit);
     QObject::connect(&tray, &TrayIconManager::quitRequested, &app,
                      &QApplication::quit);
 
     QObject::connect(&window, &MainWindow::refreshRequested, &query,
                      &UsageQuery::query);
-    QObject::connect(&window, &MainWindow::settingsApplied, &ball,
+    QObject::connect(&window, &MainWindow::settingsRequested, &settingsDlg,
+                     [&settingsDlg]() {
+                         settingsDlg.reloadAll();
+                         settingsDlg.show();
+                         settingsDlg.raise();
+                         settingsDlg.activateWindow();
+                     });
+    QObject::connect(&settingsDlg, &SettingsDialog::settingsApplied, &ball,
                      &FloatingBall::applyBallSize);
-    QObject::connect(&window, &MainWindow::settingsApplied, &tray, [&tray]() {
+    QObject::connect(&settingsDlg, &SettingsDialog::previewBallChanged, &ball,
+                     &FloatingBall::applyBallSize);
+    QObject::connect(&settingsDlg, &SettingsDialog::settingsApplied, &tray, [&tray]() {
         Theme::setTheme(AppSettings::instance().themeId());
         qApp->setStyleSheet(Theme::globalStyleSheet());
         tray.rebuildMenu();
         tray.updateTooltip();
     });
-    QObject::connect(&window, &MainWindow::settingsApplied, &query, [&query]() {
+    QObject::connect(&settingsDlg, &SettingsDialog::settingsApplied, &window,
+                     &MainWindow::refreshTheme);
+    QObject::connect(&settingsDlg, &SettingsDialog::settingsApplied, &query, [&query]() {
         query.stopAutoRefresh();
         int interval = AppSettings::instance().autoRefreshInterval();
         if (interval > 0)
@@ -140,9 +153,12 @@ int main(int argc, char *argv[])
     query.loadCache();
 
     if (!AppSettings::instance().isConfigured()) {
-        window.showTab(1);
+        settingsDlg.reloadAll();
+        settingsDlg.show();
     } else {
         query.query();
+        if (!AppSettings::instance().autoStart())
+            window.showCardList();
     }
 
     int interval = AppSettings::instance().autoRefreshInterval();

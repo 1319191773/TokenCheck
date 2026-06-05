@@ -52,6 +52,13 @@ add_executable(TokenCheckPC
     src/ui/settingsdialog.cpp
     src/ui/globalhotkey.cpp
     src/ui/theme.cpp
+    src/ui/component/clickablecard.cpp
+    src/ui/component/progressbar.cpp
+    src/ui/component/hotkeybutton.cpp
+    src/ui/component/colorbutton.cpp
+    src/ui/component/mydoubleslider.cpp
+    src/ui/component/noscrollcombobox.cpp
+    src/ui/component/noscrollspinbox.cpp
     ${QM_FILES}
     ${APP_ICON_RESOURCE}
     res/resources.qrc
@@ -64,6 +71,7 @@ target_include_directories(TokenCheckPC PRIVATE
     ${CMAKE_SOURCE_DIR}/src/platforms/glm
     ${CMAKE_SOURCE_DIR}/src/platforms/deepseek
     ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/ui/component
 )
 
 target_link_libraries(TokenCheckPC PRIVATE
@@ -78,15 +86,25 @@ if(QM_FILES)
     )
 endif()
 
-set(OPENSSL_DLL_DIR "A:/Qt/Tools/mingw1310_64/opt/bin")
+set(OPENSSL_DIR "${CMAKE_SOURCE_DIR}/res")
+set(OPENSSL_DLLS
+    "${OPENSSL_DIR}/libssl-1_1-x64.dll"
+    "${OPENSSL_DIR}/libcrypto-1_1-x64.dll"
+)
 add_custom_command(TARGET TokenCheckPC POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${OPENSSL_DLL_DIR}/libssl-1_1-x64.dll"
+        "${OPENSSL_DIR}/libssl-1_1-x64.dll"
         "$<TARGET_FILE_DIR:TokenCheckPC>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${OPENSSL_DLL_DIR}/libcrypto-1_1-x64.dll"
+        "${OPENSSL_DIR}/libcrypto-1_1-x64.dll"
         "$<TARGET_FILE_DIR:TokenCheckPC>"
+)
 
+install(TARGETS TokenCheckPC
+    RUNTIME DESTINATION bin
+)
+install(FILES ${OPENSSL_DLLS}
+    DESTINATION bin
 )
 
 if(WIN32)

@@ -7,9 +7,6 @@
 #include <QApplication>
 #include <QScreen>
 #include <QCursor>
-#include <QMenu>
-#include <QAction>
-#include <QToolTip>
 #include <cmath>
 
 FloatingBall::FloatingBall(QWidget *parent)
@@ -30,7 +27,6 @@ FloatingBall::FloatingBall(QWidget *parent)
     , m_pulseMaxSteps(0)
     , m_loadingTimer(new QTimer(this))
     , m_loadingAngle(0.0)
-    , m_tooltipTimer(new QTimer(this))
     , m_snapAnim(new QPropertyAnimation(this, "pos"))
     , m_animating(false)
 {
@@ -50,10 +46,6 @@ FloatingBall::FloatingBall(QWidget *parent)
 
     m_loadingTimer->setInterval(80);
     connect(m_loadingTimer, &QTimer::timeout, this, &FloatingBall::onLoadingTick);
-
-    m_tooltipTimer->setSingleShot(true);
-    m_tooltipTimer->setInterval(500);
-    connect(m_tooltipTimer, &QTimer::timeout, this, &FloatingBall::onTooltipTimeout);
 
     m_snapAnim->setDuration(200);
     m_snapAnim->setEasingCurve(QEasingCurve::OutCubic);
@@ -186,38 +178,6 @@ void FloatingBall::animateTo(const QPoint &target)
     m_snapAnim->start();
 }
 
-void FloatingBall::onTooltipTimeout()
-{
-    QString name = m_dm->currentAccount();
-    if (name.isEmpty())
-        return;
-    UsageData d = m_dm->data(name);
-    if (!d.isValid)
-        return;
-
-    QString tip;
-    if (d.platformType == "deepseek") {
-        tip = QString("%1 | Balance: %2 %3")
-                  .arg(name)
-                  .arg(d.balanceTotal(), 0, 'f', 2)
-                  .arg(d.balanceCurrency());
-    } else {
-        tip = QString("%1 | Token: %2% | MCP: %3%")
-                  .arg(name);
-        if (d.tokenPercentage() >= 0)
-            tip = tip.arg(d.tokenPercentage(), 0, 'f', 1);
-        else
-            tip = tip.arg("--");
-        if (d.mcpPercentage() >= 0)
-            tip = tip.arg(d.mcpPercentage(), 0, 'f', 1);
-        else
-            tip = tip.arg("--");
-        if (!d.tokenResetTime().isEmpty())
-            tip += " | Reset: " + d.tokenResetTime();
-    }
-    QToolTip::showText(mapToGlobal(QPoint(width() / 2, -5)), tip, this);
-}
-
 void FloatingBall::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
@@ -227,6 +187,7 @@ void FloatingBall::paintEvent(QPaintEvent *)
     int cx = side / 2;
     int cy = side / 2;
     int radius = side / 2 - 4;
+    int penWidth = qMax(AppSettings::instance().ringWidth(), side / 16);
 
     bool isLoading = m_loadingTimer->isActive();
     QColor baseRingColor = Theme::textDim;
@@ -260,10 +221,13 @@ void FloatingBall::paintEvent(QPaintEvent *)
     QPainterPath path;
     path.addEllipse(cx - radius, cy - radius, radius * 2, radius * 2);
     p.setClipPath(path);
-    p.fillRect(rect(), QColor(Theme::bg.red(), Theme::bg.green(), Theme::bg.blue(), 200));
+    QColor ballBg = AppSettings::instance().ballBgColor();
+    if (!ballBg.isValid())
+        ballBg = Theme::bg;
+    ballBg.setAlpha(qBound(0, AppSettings::instance().ballBgOpacity(), 255));
+    p.fillRect(rect(), ballBg);
     p.setClipping(false);
 
-    int penWidth = qMax(4, side / 16);
     int arcRadius = radius - penWidth / 2 - 2;
     QRectF arcRect(cx - arcRadius, cy - arcRadius, arcRadius * 2, arcRadius * 2);
     p.setPen(QPen(Theme::border, penWidth, Qt::SolidLine, Qt::RoundCap));
@@ -317,7 +281,7 @@ void FloatingBall::paintLoadingArc(QPainter &p, int side)
     int cx = side / 2;
     int cy = side / 2;
     int radius = side / 2 - 4;
-    int penWidth = qMax(4, side / 16);
+    int penWidth = qMax(AppSettings::instance().ringWidth(), side / 16);
     int arcRadius = radius - penWidth / 2 - 2;
     QRectF arcRect(cx - arcRadius, cy - arcRadius, arcRadius * 2, arcRadius * 2);
 
@@ -347,26 +311,19 @@ void FloatingBall::paintGlmAccount(QPainter &p, int side, const UsageData &data)
     QColor pctColor = pctUserColor.isValid() ? pctUserColor : Qt::white;
     QColor timeColorVal = timeUserColor.isValid() ? timeUserColor : Theme::textDim;
 
-    QColor ringColor = Theme::textDim;
-    double tokenPct = data.tokenPercentage();
-    int usedPct = (tokenPct >= 0) ? static_cast<int>(tokenPct) : -1;
-    if (usedPct >= 0) {
-        ringColor = usedPct < 50 ? Theme::accent : (usedPct < 80 ? Theme::warning : Theme::danger);
-    }
-
-    int penWidth = qMax(4, side / 16);
+    int penWidth = qMax(AppSettings::instance().ringWidth(), side / 16);
     int arcRadius = radius - penWidth / 2 - 2;
     QRectF arcRect(cx - arcRadius, cy - arcRadius, arcRadius * 2, arcRadius * 2);
 
+    double tokenPct = data.tokenPercentage();
+    int usedPct = (tokenPct >= 0) ? static_cast<int>(tokenPct) : -1;
+
     if (usedPct >= 0) {
+        QColor ringColor = usedPct < 50 ? Theme::accent : (usedPct < 80 ? Theme::warning : Theme::danger);
         p.setPen(QPen(ringColor, penWidth, Qt::SolidLine, Qt::RoundCap));
         int spanAngle = static_cast<int>(usedPct / 100.0 * 360 * 16);
         p.drawArc(arcRect, 90 * 16, -spanAngle);
     }
-
-    bool hasMultiAccount = m_dm->accountNames().size() > 1;
-    int bottomMargin = hasMultiAccount ? 12 : 0;
-    Q_UNUSED(bottomMargin)
 
     int timeSize = timeUserSize > 0 ? timeUserSize : qMax(12, side * 2 / 9);
     int pctSize = pctUserSize > 0 ? pctUserSize : qMax(9, side * 3 / 20);
@@ -411,55 +368,99 @@ void FloatingBall::paintDeepSeekAccount(QPainter &p, int side, const UsageData &
     QColor pctColor = pctUserColor.isValid() ? pctUserColor : Qt::white;
 
     int radius = side / 2 - 4;
-    int penWidth = qMax(4, side / 16);
+    int penWidth = qMax(AppSettings::instance().ringWidth(), side / 16);
     int arcRadius = radius - penWidth / 2 - 2;
     QRectF arcRect(cx - arcRadius, cy - arcRadius, arcRadius * 2, arcRadius * 2);
 
-    double bal = data.balanceTotal();
-    QColor ringColor = Theme::textDim;
-    if (bal >= 0) {
-        if (bal > 10) ringColor = Theme::accent;
-        else if (bal > 1) ringColor = Theme::warning;
-        else ringColor = Theme::danger;
+    struct BalanceEntry {
+        QString currency;
+        double amount;
+    };
+    QList<BalanceEntry> balances;
+    bool showUSD = AppSettings::instance().dsShowUSD();
+    for (const auto &q : data.quotaLimits) {
+        if (q.type.startsWith("BALANCE_")) {
+            BalanceEntry e;
+            e.currency = q.type.mid(8);
+            e.amount = q.total / 100.0;
+            if (e.currency == "USD" && !showUSD)
+                continue;
+            balances.append(e);
+        }
+    }
+
+    double primaryBal = balances.isEmpty() ? -1.0 : balances.first().amount;
+    if (primaryBal >= 0) {
+        const AppSettings &s = AppSettings::instance();
+        double greenT = s.dsGreenThreshold();
+        double yellowT = s.dsYellowThreshold();
+        QColor greenC = s.dsGreenColor();
+        QColor yellowC = s.dsYellowColor();
+        QColor redC = s.dsRedColor();
+        if (!balances.isEmpty() && balances.first().currency == "USD") {
+            greenT = s.dsUsdGreenThreshold();
+            yellowT = s.dsUsdYellowThreshold();
+            greenC = s.dsUsdGreenColor();
+            yellowC = s.dsUsdYellowColor();
+            redC = s.dsUsdRedColor();
+        }
+        QColor ringColor;
+        if (primaryBal > greenT) ringColor = greenC;
+        else if (primaryBal > yellowT) ringColor = yellowC;
+        else ringColor = redC;
         p.setPen(QPen(ringColor, penWidth, Qt::SolidLine, Qt::RoundCap));
-        int spanAngle = static_cast<int>(qMin(bal / 50.0, 1.0) * 360 * 16);
+        double totalRef = balances.first().currency == "USD"
+                              ? AppSettings::instance().dsUsdTotalBalance()
+                              : AppSettings::instance().dsTotalBalance();
+        int spanAngle = static_cast<int>(qMin(primaryBal / qMax(totalRef, 0.01), 1.0) * 360 * 16);
         p.drawArc(arcRect, 90 * 16, -spanAngle);
     }
 
-    int labelSize = qMax(8, side / 10);
-    int balSize = pctUserSize > 0 ? pctUserSize : qMax(11, side * 2 / 9);
-    int curSize = qMax(8, side / 10);
-    int gap = 1;
-    int blockH = labelSize + balSize + curSize + gap * 2;
-    int startY = cy - blockH / 2;
-
     QFont f = font();
-    f.setPixelSize(labelSize);
-    f.setBold(false);
-    p.setFont(f);
-    p.setPen(Theme::textDim);
-    p.drawText(QRect(0, startY, side, labelSize + 1), Qt::AlignCenter, "Balance");
 
-    f.setPixelSize(balSize);
-    f.setBold(true);
-    p.setFont(f);
-    p.setPen(pctColor);
-    if (bal >= 0) {
-        p.drawText(QRect(0, startY + labelSize + gap, side, balSize + 2),
-                   Qt::AlignCenter, QString::number(bal, 'f', 2));
+    if (balances.size() <= 1) {
+        int balSize = pctUserSize > 0 ? pctUserSize : qMax(11, side * 2 / 9);
+        int curSize = qMax(8, side / 10);
+        int gap = 1;
+        int blockH = balSize + curSize + gap;
+        int startY = cy - blockH / 2;
+
+        f.setPixelSize(balSize);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(pctColor);
+        if (primaryBal >= 0) {
+            p.drawText(QRect(0, startY, side, balSize + 2),
+                       Qt::AlignCenter, QString::number(primaryBal, 'f', 2));
+        } else {
+            p.drawText(QRect(0, startY, side, balSize + 2), Qt::AlignCenter, "--");
+        }
+
+        f.setPixelSize(curSize);
+        f.setBold(false);
+        p.setFont(f);
+        p.setPen(Theme::textDim);
+        if (!balances.isEmpty() && !balances.first().currency.isEmpty())
+            p.drawText(QRect(0, startY + balSize + gap, side, curSize + 1),
+                       Qt::AlignCenter, balances.first().currency);
     } else {
-        p.drawText(QRect(0, startY + labelSize + gap, side, balSize + 2),
-                   Qt::AlignCenter, "--");
-    }
+        int lineSize = pctUserSize > 0 ? pctUserSize : qMax(9, side / 7);
+        int gap = 1;
+        int count = balances.size();
+        int blockH = lineSize * count + gap * (count - 1);
+        int startY = cy - blockH / 2;
 
-    f.setPixelSize(curSize);
-    f.setBold(false);
-    p.setFont(f);
-    p.setPen(Theme::textDim);
-    QString cur = data.balanceCurrency();
-    if (!cur.isEmpty())
-        p.drawText(QRect(0, startY + labelSize + gap + balSize + gap, side, curSize + 1),
-                   Qt::AlignCenter, cur);
+        for (int i = 0; i < count; i++) {
+            f.setPixelSize(lineSize);
+            f.setBold(true);
+            p.setFont(f);
+            p.setPen(pctColor);
+            QString curSymbol = balances[i].currency == "USD" ? "$" : (balances[i].currency == "CNY" ? QString::fromUtf8("\xc2\xa5") : balances[i].currency);
+            QString line = curSymbol + QString::number(balances[i].amount, 'f', 2);
+            p.drawText(QRect(0, startY + i * (lineSize + gap), side, lineSize + 2),
+                       Qt::AlignCenter, line);
+        }
+    }
 }
 
 void FloatingBall::mousePressEvent(QMouseEvent *event)
@@ -520,20 +521,13 @@ void FloatingBall::mouseDoubleClickEvent(QMouseEvent *)
     emit doubleClicked();
 }
 
-void FloatingBall::wheelEvent(QWheelEvent *event)
-{
-    int delta = event->angleDelta().y();
-    if (delta > 0)
-        switchAccount(-1);
-    else if (delta < 0)
-        switchAccount(1);
-    event->accept();
-}
-
 void FloatingBall::onSingleClickTimeout()
 {
     if (m_pendingSingleClick) {
         m_pendingSingleClick = false;
+        auto names = m_dm->accountNames();
+        if (names.size() > 1)
+            switchAccount(1);
         emit singleClicked();
     }
 }
@@ -541,47 +535,11 @@ void FloatingBall::onSingleClickTimeout()
 void FloatingBall::enterEvent(QEvent *)
 {
     m_hovering = true;
-    m_tooltipTimer->start();
 }
 
 void FloatingBall::leaveEvent(QEvent *)
 {
     m_hovering = false;
-    m_tooltipTimer->stop();
-    QToolTip::hideText();
-}
-
-void FloatingBall::contextMenuEvent(QContextMenuEvent *event)
-{
-    QMenu menu;
-
-    auto *refreshAction = menu.addAction(tr("Refresh"));
-    menu.addSeparator();
-
-    auto names = m_dm->accountNames();
-    if (names.size() > 1) {
-        for (const auto &n : names) {
-            auto *act = menu.addAction(n);
-            act->setCheckable(true);
-            act->setChecked(n == m_dm->currentAccount());
-            connect(act, &QAction::triggered, this, [this, n]() {
-                m_dm->setCurrentAccount(n);
-            });
-        }
-        menu.addSeparator();
-    }
-
-    auto *detailAction = menu.addAction(tr("Show Detail"));
-    auto *settingsAction = menu.addAction(tr("Settings"));
-    menu.addSeparator();
-    auto *quitAction = menu.addAction(tr("Quit"));
-
-    connect(refreshAction, &QAction::triggered, this, &FloatingBall::singleClicked);
-    connect(detailAction, &QAction::triggered, this, &FloatingBall::detailRequested);
-    connect(settingsAction, &QAction::triggered, this, &FloatingBall::settingsRequested);
-    connect(quitAction, &QAction::triggered, this, &FloatingBall::quitRequested);
-
-    menu.exec(event->globalPos());
 }
 
 void FloatingBall::onSnapCheck()
