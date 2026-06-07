@@ -1,11 +1,11 @@
-#ifndef MYDOUBLESLIDER_H
-#define MYDOUBLESLIDER_H
+#ifndef DOUBLERANGESLIDER_H
+#define DOUBLERANGESLIDER_H
 
 #include <QWidget>
 #include <QPainter>
 #include <QMouseEvent>
 
-class myDoubleSlider : public QWidget
+class DoubleRangeSlider : public QWidget
 {
     Q_OBJECT
 
@@ -18,21 +18,23 @@ public:
     };
     Q_DECLARE_FLAGS(Options, Option)
 
-    myDoubleSlider(QWidget *aParent = nullptr);
-    myDoubleSlider(Qt::Orientation ori, Options t = DoubleHandles, QWidget *aParent = nullptr);
+    DoubleRangeSlider(QWidget *aParent = nullptr);
+    DoubleRangeSlider(Qt::Orientation ori, Options t = DoubleHandles, QWidget *aParent = nullptr);
 
     QSize minimumSizeHint() const override;
 
-    int GetMinimun() const;
-    void SetMinimum(int aMinimum);
-    int GetMaximun() const;
-    void SetMaximum(int aMaximum);
-    int GetLowerValue() const;
-    void SetLowerValue(int aLowerValue);
-    int GetUpperValue() const;
-    void SetUpperValue(int aUpperValue);
-    void SetRange(int aMinimum, int aMaximum);
-    void SetTracking(bool enable);
+    int minimum() const;
+    int maximum() const;
+    int lowerValue() const;
+    int upperValue() const;
+    void setRange(int aMinimum, int aMaximum);
+    void setTracking(bool enable);
+
+    int GetLowerValue() const { return lowerValue(); }
+    int GetUpperValue() const { return upperValue(); }
+    void SetLowerValue(int v) { setLowerValue(v); }
+    void SetUpperValue(int v) { setUpperValue(v); }
+    void SetRange(int lo, int hi) { setRange(lo, hi); }
 
 protected:
     void paintEvent(QPaintEvent *aEvent) override;
@@ -57,7 +59,7 @@ public slots:
     void setMaximum(int aMaximum);
 
 private:
-    Q_DISABLE_COPY(myDoubleSlider)
+    Q_DISABLE_COPY(DoubleRangeSlider)
     float currentPercentage();
     int validLength() const;
 
@@ -77,6 +79,6 @@ private:
     Options type;
 };
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(myDoubleSlider::Options)
+Q_DECLARE_OPERATORS_FOR_FLAGS(DoubleRangeSlider::Options)
 
 #endif

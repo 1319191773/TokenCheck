@@ -1,8 +1,8 @@
 # TokenCheckPC
 
-Desktop API token usage monitor for Windows. Tracks GLM and DeepSeek API quotas in real time with a floating ball, system tray icon, and detailed dashboard.
+Desktop API token usage monitor for **Windows** and **macOS**. Tracks GLM and DeepSeek API quotas in real time with a floating ball, system tray icon, and detailed dashboard.
 
-Built with Qt 5.15.2 / C++17 / CMake, targeting Windows x64 (MinGW).
+Built with Qt 5.15.2 / C++17 / CMake.
 
 ## Features
 
@@ -17,30 +17,50 @@ Built with Qt 5.15.2 / C++17 / CMake, targeting Windows x64 (MinGW).
 - **Offline cache** — last successful query cached to JSON, shown instantly on startup
 - **Dark / Light theme** — instant switching via Catppuccin palettes, no restart
 - **i18n** — English and Simplified Chinese (restart required to switch)
-- **Global hotkeys** — Windows native `RegisterHotKey` for toggle ball visibility and force refresh
+- **Global hotkeys** — cross-platform via [QHotkey](https://github.com/Skycoder42/QHotkey) (toggle ball visibility and force refresh)
 - **Auto refresh** — configurable interval (1–120 minutes)
 - **Proxy** — HTTP or SOCKS5 proxy support
 
-## Screenshots
-
-*(Add screenshots here)*
-
 ## Build Requirements
 
-- Qt 5.15.2 (MinGW 81 64-bit)
-- MinGW compiler (GCC 13.1+)
+### Common
+- Qt 5.15.2
 - CMake 3.14+
 - C++17
-- OpenSSL 1.1.x DLLs (for HTTPS requests)
+- Git (for FetchContent dependencies)
+
+### Windows
+- MinGW compiler (GCC 13.1+)
+- OpenSSL 1.1.x DLLs (bundled in `res/`)
+
+### macOS
+- Xcode Command Line Tools or Clang
+- macOS 10.14+ (for deployment)
 
 ## Build
+
+### Windows (MinGW)
 
 ```bash
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH=<Qt_path>/5.15.2/mingw81_64 -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-Output: `build/TokenCheckPC.exe` along with `icon.png`, translation `.qm`, and OpenSSL DLLs.
+Output: `build/TokenCheckPC.exe` along with translation `.qm` and OpenSSL DLLs.
+
+### macOS
+
+```bash
+# Optional: generate app.icns from icon.png
+bash res/generate_icns.sh
+
+cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt_path>/5.15.2/clang_64 -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+Output: `build/TokenCheckPC.app` bundle.
+
+**Note:** Global hotkeys on macOS require Accessibility permission. On first use, go to **System Preferences → Privacy & Security → Accessibility** and enable TokenCheck.
 
 ## Project Structure
 
@@ -48,7 +68,9 @@ Output: `build/TokenCheckPC.exe` along with `icon.png`, translation `.qm`, and O
 ├── CMakeLists.txt
 ├── res/
 │   ├── app.ico              # Windows exe icon (multi-size)
-│   ├── app.rc               # Resource script for exe icon
+│   ├── app.rc / app.rc.in   # Windows resource script
+│   ├── Info.plist.in        # macOS bundle properties
+│   ├── generate_icns.sh     # macOS icon generator script
 │   └── icon.png             # App icon (tray + window)
 ├── translations/
 │   └── TokenCheckPC_zh_CN.ts  # Chinese translations
@@ -73,7 +95,7 @@ Output: `build/TokenCheckPC.exe` along with `icon.png`, translation `.qm`, and O
         ├── mainwindow.h/cpp        # Main window with 4 tabs
         ├── settingsdialog.h/cpp    # HotkeyButton, QuickAddDialog, AccountEditDialog
         ├── trayiconmanager.h/cpp   # System tray icon + notifications
-        ├── globalhotkey.h/cpp      # Windows RegisterHotKey wrapper
+        ├── globalhotkey.h/cpp      # Cross-platform hotkey wrapper (QHotkey)
         └── theme.h/cpp             # ThemeId, ThemePalette, dynamic QSS
 ```
 
@@ -100,6 +122,17 @@ Settings stored in `QStandardPaths::AppDataLocation/settings.json`:
 - Notification threshold (1–50%, default 20%)
 - Global hotkey sequences (toggle ball, refresh)
 - HTTP/SOCKS5 proxy settings
+
+## Platform Notes
+
+| Feature | Windows | macOS |
+|---------|---------|-------|
+| Floating ball | ✅ | ✅ |
+| System tray | ✅ | ✅ |
+| Global hotkeys | ✅ | ✅ (needs Accessibility permission) |
+| Auto-start on login | ✅ (Registry) | ✅ (LaunchAgent) |
+| SSL/HTTPS | OpenSSL DLLs | System SecureTransport |
+| App bundle | `.exe` | `.app` |
 
 ## License
 

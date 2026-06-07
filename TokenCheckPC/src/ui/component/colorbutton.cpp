@@ -1,5 +1,5 @@
 #include "colorbutton.h"
-#include <QColorDialog>
+#include "colorpickerdialog.h"
 
 ColorButton::ColorButton(const QColor &initial, const QString &defaultLabel, QWidget *parent)
     : QPushButton(parent), m_color(initial), m_defaultLabel(defaultLabel)
@@ -17,11 +17,12 @@ void ColorButton::setDefaultLabel(const QString &label) { m_defaultLabel = label
 void ColorButton::pickColor()
 {
     QColor initial = m_color.isValid() ? m_color : Qt::white;
-    QColor c = QColorDialog::getColor(initial, this, tr("Choose Color"));
-    if (c.isValid()) {
-        m_color = c;
+    ColorPickerDialog dlg(initial, this);
+    dlg.setOldColor(m_color);
+    if (dlg.exec() == QDialog::Accepted) {
+        m_color = dlg.selectedColor();
         updateAppearance();
-        emit colorChanged(c);
+        emit colorChanged(m_color);
     }
 }
 

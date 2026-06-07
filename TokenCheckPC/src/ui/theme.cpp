@@ -1,20 +1,22 @@
 #include "theme.h"
+#include <QFile>
+#include <QTextStream>
 
 static const ThemePalette s_darkData = {
-    {30, 30, 46},       {42, 42, 60},       {49, 49, 71},
-    {61, 61, 92},       {69, 71, 90},       {205, 214, 244},
-    {108, 112, 134},    {46, 204, 113},     {39, 174, 96},
-    {33, 154, 82},      {231, 76, 60},      {192, 57, 43},
-    {241, 196, 15},     {69, 71, 90},       {88, 91, 112},
-    {30, 30, 46}
+    {10, 10, 10},       {20, 20, 20},       {30, 30, 30},
+    {38, 38, 38},       {46, 46, 46},       {237, 237, 237},
+    {161, 161, 170},    {94, 106, 210},     {111, 123, 227},
+    {83, 93, 185},      {239, 68, 68},      {248, 113, 113},
+    {245, 158, 11},     {38, 38, 38},       {64, 64, 64},
+    {255, 255, 255}
 };
 
 static const ThemePalette s_lightData = {
-    {239, 241, 245},    {230, 233, 239},    {204, 208, 218},
-    {188, 192, 204},    {172, 176, 190},    {76, 79, 105},
-    {124, 127, 147},    {64, 160, 43},      {54, 133, 30},
-    {45, 110, 24},      {210, 15, 57},      {176, 13, 48},
-    {223, 142, 29},     {188, 192, 204},    {156, 160, 174},
+    {250, 250, 250},    {255, 255, 255},    {244, 244, 245},
+    {228, 228, 231},    {212, 212, 216},    {24, 24, 27},
+    {113, 113, 122},    {79, 70, 229},      {99, 102, 241},
+    {67, 56, 202},      {220, 38, 38},      {239, 68, 68},
+    {217, 119, 6},      {228, 228, 231},    {212, 212, 216},
     {255, 255, 255}
 };
 
@@ -68,415 +70,29 @@ QString Theme::globalStyleSheet()
 
 QString Theme::buildQSS(const ThemePalette &p)
 {
-    QString bg = p.bg.name();
-    QString sf = p.surface.name();
-    QString sa = p.surfaceAlt.name();
-    QString sh = p.surfaceHover.name();
-    QString sp = p.surfacePressed.name();
-    QString tx = p.text.name();
-    QString td = p.textDim.name();
-    QString ac = p.accent.name();
-    QString ah = p.accentHover.name();
-    QString ap = p.accentPressed.name();
-    QString dn = p.danger.name();
-    QString dh = p.dangerHover.name();
-    QString bd = p.border.name();
-    QString bh = p.borderHover.name();
-    QString pt = p.primaryText.name();
+    QFile file(":/style.qss");
+    if (!file.open(QFile::ReadOnly | QFile::Text)) {
+        return "";
+    }
+    QTextStream in(&file);
+    QString qss = in.readAll();
+    file.close();
 
-    return
+    qss.replace("@bg@", p.bg.name());
+    qss.replace("@sf@", p.surface.name());
+    qss.replace("@sa@", p.surfaceAlt.name());
+    qss.replace("@sh@", p.surfaceHover.name());
+    qss.replace("@sp@", p.surfacePressed.name());
+    qss.replace("@tx@", p.text.name());
+    qss.replace("@td@", p.textDim.name());
+    qss.replace("@ac@", p.accent.name());
+    qss.replace("@ah@", p.accentHover.name());
+    qss.replace("@ap@", p.accentPressed.name());
+    qss.replace("@dn@", p.danger.name());
+    qss.replace("@dh@", p.dangerHover.name());
+    qss.replace("@bd@", p.border.name());
+    qss.replace("@bh@", p.borderHover.name());
+    qss.replace("@pt@", p.primaryText.name());
 
-    "QWidget {"
-    "  color: " + tx + ";"
-    "  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;"
-    "}\n"
-
-    "QDialog {"
-    "  background-color: " + bg + ";"
-    "}\n"
-
-    "QWidget#MainWindowRoot {"
-    "  background-color: " + bg + ";"
-    "}\n"
-
-    "QGroupBox {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 8px;"
-    "  margin-top: 14px;"
-    "  padding: 14px 12px 10px 12px;"
-    "  font-weight: bold;"
-    "}\n"
-    "QGroupBox::title {"
-    "  subcontrol-origin: margin;"
-    "  subcontrol-position: top left;"
-    "  left: 14px;"
-    "  padding: 0 6px;"
-    "  color: " + tx + ";"
-    "}\n"
-
-    "QPushButton {"
-    "  background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  padding: 6px 16px;"
-    "  min-height: 20px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QPushButton:hover {"
-    "  background-color: " + sh + ";"
-    "  border-color: " + bh + ";"
-    "}\n"
-    "QPushButton:pressed {"
-    "  background-color: " + sp + ";"
-    "}\n"
-    "QPushButton:disabled {"
-    "  background-color: " + sf + ";"
-    "  color: " + td + ";"
-    "}\n"
-
-    "QPushButton[class=\"primary\"] {"
-    "  background-color: " + ac + ";"
-    "  border-color: " + ah + ";"
-    "  color: " + pt + ";"
-    "  font-weight: bold;"
-    "}\n"
-    "QPushButton[class=\"primary\"]:hover {"
-    "  background-color: " + ah + ";"
-    "}\n"
-    "QPushButton[class=\"primary\"]:pressed {"
-    "  background-color: " + ap + ";"
-    "}\n"
-
-    "QPushButton[class=\"danger\"] {"
-    "  background-color: " + dn + ";"
-    "  border-color: " + dh + ";"
-    "  color: #FFFFFF;"
-    "}\n"
-    "QPushButton[class=\"danger\"]:hover {"
-    "  background-color: " + dh + ";"
-    "}\n"
-
-    "QComboBox {"
-    "  background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  padding: 5px 10px;"
-    "  min-height: 20px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QComboBox:hover {"
-    "  border-color: " + bh + ";"
-    "}\n"
-    "QComboBox::drop-down {"
-    "  subcontrol-origin: padding;"
-    "  subcontrol-position: center right;"
-    "  width: 28px;"
-    "  border: none;"
-    "}\n"
-    "QComboBox::down-arrow {"
-    "  width: 12px;"
-    "  height: 12px;"
-    "}\n"
-    "QComboBox QAbstractItemView {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 4px;"
-    "  selection-background-color: " + sh + ";"
-    "  selection-color: " + tx + ";"
-    "  color: " + tx + ";"
-    "  outline: none;"
-    "}\n"
-
-    "QSpinBox {"
-    "  background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  padding: 4px 8px;"
-    "  min-height: 20px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QSpinBox:hover {"
-    "  border-color: " + bh + ";"
-    "}\n"
-    "QSpinBox::up-button {"
-    "  subcontrol-origin: border;"
-    "  subcontrol-position: top right;"
-    "  width: 20px;"
-    "  border-left: 1px solid " + bd + ";"
-    "  border-top-right-radius: 5px;"
-    "  background-color: " + sh + ";"
-    "}\n"
-    "QSpinBox::up-button:hover {"
-    "  background-color: " + sp + ";"
-    "}\n"
-    "QSpinBox::up-arrow {"
-    "  width: 16px;"
-    "  height: 16px;"
-    "  image: url(:/arrow_up.png);"
-    "}\n"
-    "QSpinBox::down-button {"
-    "  subcontrol-origin: border;"
-    "  subcontrol-position: bottom right;"
-    "  width: 20px;"
-    "  border-left: 1px solid " + bd + ";"
-    "  border-top: 1px solid " + bd + ";"
-    "  border-bottom-right-radius: 5px;"
-    "  background-color: " + sh + ";"
-    "}\n"
-    "QSpinBox::down-button:hover {"
-    "  background-color: " + sp + ";"
-    "}\n"
-    "QSpinBox::down-arrow {"
-    "  width: 16px;"
-    "  height: 16px;"
-    "  image: url(:/arrow_down.png);"
-    "}\n"
-
-    "QLineEdit {"
-    "  background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  padding: 5px 10px;"
-    "  min-height: 20px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QLineEdit:hover {"
-    "  border-color: " + bh + ";"
-    "}\n"
-    "QLineEdit:focus {"
-    "  border-color: " + ac + ";"
-    "}\n"
-
-    "QCheckBox {"
-    "  spacing: 8px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QCheckBox::indicator {"
-    "  width: 18px;"
-    "  height: 18px;"
-    "  border: 2px solid " + bd + ";"
-    "  border-radius: 4px;"
-    "  background-color: " + sa + ";"
-    "}\n"
-    "QCheckBox::indicator:hover {"
-    "  border-color: " + bh + ";"
-    "}\n"
-    "QCheckBox::indicator:checked {"
-    "  background-color: " + ac + ";"
-    "  border-color: " + ac + ";"
-    "}\n"
-
-    "QTabWidget {"
-    "  background-color: " + bg + ";"
-    "}\n"
-    "QTabWidget::pane {"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 4px;"
-    "  background-color: " + bg + ";"
-    "  top: -1px;"
-    "}\n"
-    "QTabBar {"
-    "  background-color: " + bg + ";"
-    "}\n"
-    "QTabBar::tab {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-bottom: none;"
-    "  border-top-left-radius: 6px;"
-    "  border-top-right-radius: 6px;"
-    "  padding: 8px 20px;"
-    "  margin-right: 2px;"
-    "  color: " + td + ";"
-    "}\n"
-    "QTabBar::tab:hover {"
-    "  background-color: " + sa + ";"
-    "  color: " + tx + ";"
-    "}\n"
-    "QTabBar::tab:selected {"
-    "  background-color: " + bg + ";"
-    "  color: " + ac + ";"
-    "  font-weight: bold;"
-    "  border-bottom: 2px solid " + ac + ";"
-    "}\n"
-
-    "QProgressBar {"
-    "  background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 9px;"
-    "  text-align: center;"
-    "  color: " + tx + ";"
-    "  font-size: 11px;"
-    "  min-height: 18px;"
-    "  max-height: 18px;"
-    "}\n"
-    "QProgressBar::chunk {"
-    "  border-radius: 8px;"
-    "}\n"
-
-    "QTableWidget {"
-    "  background-color: " + sf + ";"
-    "  alternate-background-color: " + sa + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  gridline-color: " + sh + ";"
-    "  color: " + tx + ";"
-    "  selection-background-color: " + sh + ";"
-    "  selection-color: " + tx + ";"
-    "  outline: none;"
-    "}\n"
-    "QTableWidget::item {"
-    "  padding: 4px 8px;"
-    "}\n"
-    "QTableWidget::item:hover {"
-    "  background-color: " + sh + ";"
-    "}\n"
-    "QHeaderView::section {"
-    "  background-color: " + sa + ";"
-    "  color: " + td + ";"
-    "  border: none;"
-    "  border-bottom: 2px solid " + bd + ";"
-    "  padding: 6px 8px;"
-    "  font-weight: bold;"
-    "}\n"
-
-    "QListWidget {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  color: " + tx + ";"
-    "  outline: none;"
-    "}\n"
-    "QListWidget::item {"
-    "  padding: 8px 12px;"
-    "  border-bottom: 1px solid " + sh + ";"
-    "}\n"
-    "QListWidget::item:hover {"
-    "  background-color: " + sa + ";"
-    "}\n"
-    "QListWidget::item:selected {"
-    "  background-color: " + sh + ";"
-    "  border-left: 3px solid " + ac + ";"
-    "}\n"
-
-    "QScrollBar:vertical {"
-    "  background-color: transparent;"
-    "  width: 8px;"
-    "  margin: 0;"
-    "}\n"
-    "QScrollBar::handle:vertical {"
-    "  background-color: " + bd + ";"
-    "  border-radius: 4px;"
-    "  min-height: 30px;"
-    "}\n"
-    "QScrollBar::handle:vertical:hover {"
-    "  background-color: " + bh + ";"
-    "}\n"
-    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
-    "  height: 0;"
-    "}\n"
-    "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
-    "  background: none;"
-    "}\n"
-
-    "QScrollBar:horizontal {"
-    "  background-color: transparent;"
-    "  height: 8px;"
-    "  margin: 0;"
-    "}\n"
-    "QScrollBar::handle:horizontal {"
-    "  background-color: " + bd + ";"
-    "  border-radius: 4px;"
-    "  min-width: 30px;"
-    "}\n"
-    "QScrollBar::handle:horizontal:hover {"
-    "  background-color: " + bh + ";"
-    "}\n"
-    "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
-    "  width: 0;"
-    "}\n"
-    "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {"
-    "  background: none;"
-    "}\n"
-
-    "QMenu {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 8px;"
-    "  padding: 6px 0;"
-    "}\n"
-    "QMenu::item {"
-    "  padding: 6px 28px 6px 20px;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QMenu::item:selected {"
-    "  background-color: " + sh + ";"
-    "  border-radius: 4px;"
-    "  margin: 0 4px;"
-    "  padding: 6px 24px 6px 16px;"
-    "}\n"
-    "QMenu::separator {"
-    "  height: 1px;"
-    "  background-color: " + bd + ";"
-    "  margin: 4px 12px;"
-    "}\n"
-    "QMenu::indicator {"
-    "  width: 16px;"
-    "  height: 16px;"
-    "  margin-left: 4px;"
-    "}\n"
-
-    "QToolTip {"
-    "  background-color: " + sf + ";"
-    "  color: " + tx + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 6px;"
-    "  padding: 6px 10px;"
-    "}\n"
-
-    "QScrollArea {"
-    "  background-color: transparent;"
-    "  border: none;"
-    "}\n"
-    "QScrollArea > QWidget {"
-    "  background-color: transparent;"
-    "}\n"
-    "QScrollArea > QWidget > QWidget {"
-    "  background-color: transparent;"
-    "}\n"
-
-    "QDialogButtonBox QPushButton {"
-    "  min-width: 80px;"
-    "}\n"
-
-    "QLabel {"
-    "  color: " + tx + ";"
-    "}\n"
-    "QLabel[class=\"dim\"] {"
-    "  color: " + td + ";"
-    "}\n"
-    "QLabel[class=\"status-ok\"] {"
-    "  color: " + ac + ";"
-    "  font-weight: bold;"
-    "}\n"
-    "QLabel[class=\"status-err\"] {"
-    "  color: " + dn + ";"
-    "  font-weight: bold;"
-    "}\n"
-    "QLabel[class=\"stat-value\"] {"
-    "  font-size: 16px;"
-    "  font-weight: bold;"
-    "  color: " + tx + ";"
-    "}\n"
-    "QLabel[class=\"stat-label\"] {"
-    "  font-size: 11px;"
-    "  color: " + td + ";"
-    "}\n"
-
-    "QFrame[class=\"stat-card\"] {"
-    "  background-color: " + sf + ";"
-    "  border: 1px solid " + bd + ";"
-    "  border-radius: 8px;"
-    "  padding: 12px;"
-    "}\n";
+    return qss;
 }

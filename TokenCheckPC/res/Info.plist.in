@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>TokenCheck</string>
+    <key>CFBundleDisplayName</key>
+    <string>TokenCheck</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.zaitech.TokenCheckPC</string>
+    <key>CFBundleVersion</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundleIconFile</key>
+    <string>app.icns</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © ZaiTech. MIT License.</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.14</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>TokenCheck needs accessibility access to register global hotkeys.</string>
+</dict>
+</plist>

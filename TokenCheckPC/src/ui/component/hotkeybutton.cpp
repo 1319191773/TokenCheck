@@ -1,5 +1,6 @@
 #include "hotkeybutton.h"
 #include <QKeyEvent>
+#include "../theme.h"
 
 HotkeyButton::HotkeyButton(QWidget *parent) : QPushButton(parent)
 {
@@ -21,13 +22,13 @@ void HotkeyButton::updateDisplay()
 {
     if (m_capturing) {
         setText(tr("Press keys..."));
-        setStyleSheet("background-color: #5C4B00; border: 2px solid #F1C40F; border-radius: 6px; color: #F1C40F; font-weight: bold;");
+        setStyleSheet(QString("border: 1px solid %1; color: %1; font-weight: bold; background-color: transparent;").arg(Theme::warning.name()));
     } else if (m_sequence.isEmpty()) {
         setText(tr("(None)"));
         setStyleSheet(QString());
     } else {
         setText(m_sequence);
-        setStyleSheet("color: #2ECC71; font-weight: bold;");
+        setStyleSheet(QString("color: %1; font-weight: bold; background-color: transparent; border: 1px solid %2;").arg(Theme::accent.name(), Theme::border.name()));
     }
 }
 

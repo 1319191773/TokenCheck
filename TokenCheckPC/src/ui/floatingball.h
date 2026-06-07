@@ -6,7 +6,7 @@
 #include <QWheelEvent>
 #include <QTimer>
 #include <QPropertyAnimation>
-#include "usagequery.h"
+#include "types.h"
 
 class DataManager;
 
@@ -39,7 +39,7 @@ protected:
 private slots:
     void onSingleClickTimeout();
     void onPulseTick();
-    void onSnapCheck();
+    void onAutoSnapTimeout();
     void onLoadingTick();
     void onAccountChanged(const QString &name);
     void onAllDataUpdated();
@@ -51,6 +51,7 @@ private:
     void switchAccount(int delta);
     void checkSnapToEdge();
     void snapToEdge();
+    void popOut();
     QRect screenRect() const;
     void animateTo(const QPoint &target);
 
@@ -73,7 +74,7 @@ private:
     QTimer *m_clickTimer;
     bool m_pendingSingleClick;
     QTimer *m_pulseTimer;
-    QTimer *m_snapCheckTimer;
+    QTimer *m_autoSnapTimer;
     qreal m_glowOpacity;
     int m_pulseStep;
     int m_pulseMaxSteps;

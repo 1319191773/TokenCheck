@@ -3,6 +3,7 @@
 #include "appsettings.h"
 #include "datamanager.h"
 #include "theme.h"
+#include "thresholdcolor.h"
 #include "component/clickablecard.h"
 #include "component/progressbar.h"
 
@@ -45,16 +46,8 @@ static QString tdName() { return Theme::textDim.name(); }
 static QString bdName() { return Theme::border.name(); }
 static QString acName() { return Theme::accent.name(); }
 
-static QColor pctColorValue(double pct)
-{
-    if (pct < 0) return Theme::textDim;
-    if (pct < 50) return Theme::accent;
-    if (pct < 80) return Theme::warning;
-    return Theme::danger;
-}
-
-static QString pctColor(double pct) { return pctColorValue(pct).name(); }
-static QString barChunkColor(int pct) { return pctColorValue(pct).name(); }
+static QString pctColor(double pct) { return ColorResolver::glmTokenColor(pct).name(); }
+static QString barChunkColor(int pct) { return ColorResolver::glmTokenColor(pct).name(); }
 
 QWidget *MainWindow::createCardListPage()
 {
@@ -83,7 +76,7 @@ QWidget *MainWindow::createCardListPage()
     headerLayout->addWidget(m_headerSub, 0, Qt::AlignBottom);
     headerLayout->addStretch();
 
-    auto *settingsBtn = new QPushButton(QString::fromUtf8("\xe2\x9a\x99"));
+    auto *settingsBtn = new QPushButton(QString::fromUtf8("\u2699"));
     settingsBtn->setFixedSize(36, 36);
     settingsBtn->setStyleSheet(
         QString("QPushButton { font-size: 18px; color: %1; border: none; border-radius: 8px; padding: 2px; }"
@@ -99,7 +92,7 @@ QWidget *MainWindow::createCardListPage()
     m_cardScroll->setWidgetResizable(true);
     m_cardScroll->setFrameShape(QFrame::NoFrame);
     m_cardScroll->setStyleSheet(
-        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+        QString("QScrollArea, QScrollArea > QWidget > QWidget { background-color: transparent; border: none; }"));
 
     auto *container = new QWidget();
     container->setStyleSheet(QString("background-color: %1;").arg(sfName()));
@@ -167,7 +160,7 @@ QWidget *MainWindow::createDetailPage()
     auto *backLayout = new QHBoxLayout(backWidget);
     backLayout->setContentsMargins(8, 6, 12, 6);
     backLayout->setSpacing(6);
-    auto *backIcon = new QLabel(QString::fromUtf8("\xe2\x86\x90"));
+    auto *backIcon = new QLabel(QString::fromUtf8("\u2190"));
     backIcon->setStyleSheet(QString("font-size: 18px; color: %1; border: none; background: transparent;").arg(tdName()));
     backLayout->addWidget(backIcon);
     auto *backText = new QLabel(tr("Back"));
@@ -190,7 +183,7 @@ QWidget *MainWindow::createDetailPage()
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setStyleSheet(
-        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+        QString("QScrollArea, QScrollArea > QWidget > QWidget { background-color: transparent; border: none; }"));
     m_detailScroll = scroll;
     auto *container = new QWidget();
     container->setStyleSheet(QString("background-color: %1;").arg(sfName()));
@@ -294,10 +287,10 @@ void MainWindow::rebuildCards()
         statusBadge->setAlignment(Qt::AlignCenter);
         statusBadge->setStyleSheet(
             d.isValid
-                ? QString("background-color: #1A3A2A; color: %1; font-size: 11px; font-weight: bold; "
-                          "border-radius: 6px; padding: 2px 10px;").arg(Theme::accent.name())
-                : QString("background-color: #3A1A1A; color: %1; font-size: 11px; font-weight: bold; "
-                          "border-radius: 6px; padding: 2px 10px;").arg(Theme::danger.name()));
+                ? QString("border: 1px solid %1; color: %1; font-size: 11px; font-weight: bold; "
+                          "border-radius: 6px; padding: 2px 10px; background-color: transparent;").arg(Theme::accent.name())
+                : QString("border: 1px solid %1; color: %1; font-size: 11px; font-weight: bold; "
+                          "border-radius: 6px; padding: 2px 10px; background-color: transparent;").arg(Theme::danger.name()));
         statusBadge->setFixedHeight(22);
         topRow->addWidget(statusBadge);
         cardLayout->addLayout(topRow);
@@ -314,7 +307,7 @@ void MainWindow::rebuildCards()
                 auto *balVal = new QLabel();
                 double bal = d.balanceTotal();
                 balVal->setStyleSheet(QString("font-size: 15px; font-weight: bold; color: %1; background: transparent;")
-                                          .arg(bal > 10 ? Theme::accent.name() : (bal > 1 ? Theme::warning.name() : Theme::danger.name())));
+                                          .arg(ColorResolver::dsBalanceColor(bal, d.balanceCurrency()).name()));
                 balVal->setText(bal >= 0 ? QString("%1 %2").arg(bal, 0, 'f', 2).arg(d.balanceCurrency()) : "--");
                 balRow->addWidget(balVal);
                 balRow->addStretch();
@@ -460,12 +453,6 @@ QWidget *MainWindow::createSummarySection()
     auto makeCard = [](const QString &label, QLabel *&valueLabel) -> QFrame * {
         auto *card = new QFrame();
         card->setProperty("class", "stat-card");
-        card->setStyleSheet(
-            QString("QFrame#statCard {"
-                    "  background-color: %1;"
-                    "  border: 1px solid %2;"
-                    "  border-radius: 8px;"
-                    "}").arg(sfName(), bdName()));
         card->setObjectName("statCard");
         auto *vlayout = new QVBoxLayout(card);
         vlayout->setContentsMargins(12, 10, 12, 10);
@@ -573,11 +560,11 @@ void MainWindow::onAllDataUpdated()
 void MainWindow::displayData(const UsageData &data)
 {
     if (!data.isValid) {
-        m_statusLabel->setText(QString::fromUtf8("\xe2\x97\x8f ") + data.platformName + ": " + data.errorMsg);
+        m_statusLabel->setText(QString::fromUtf8("\u25CF ") + data.platformName + ": " + data.errorMsg);
         m_statusLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(Theme::danger.name()));
         return;
     }
-    m_statusLabel->setText(QString::fromUtf8("\xe2\x97\x8f ") + data.platformName + " [" + data.platformType + "] OK");
+    m_statusLabel->setText(QString::fromUtf8("\u25CF ") + data.platformName + " [" + data.platformType + "] OK");
     m_statusLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(Theme::accent.name()));
 
     QDateTime lastUpdate = m_dm->lastUpdateTime();
@@ -617,8 +604,9 @@ void MainWindow::displayData(const UsageData &data)
                 m_tokenBar->setValue(usedPct);
                 m_tokenLabel->setText(tr("Used %1%").arg(usedPct));
                 m_tokenBar->setStyleSheet(
-                    QString("QProgressBar::chunk { background: %1; border-radius: 8px; }")
-                        .arg(barChunkColor(usedPct)));
+                    QString("QProgressBar { background-color: %1; border: none; border-radius: 6px; } "
+                            "QProgressBar::chunk { background: %2; border-radius: 6px; }")
+                        .arg(saName(), barChunkColor(usedPct)));
                 if (!q.resetTime.isEmpty())
                     m_resetLabel->setText(q.resetTime);
                 else
@@ -632,8 +620,9 @@ void MainWindow::displayData(const UsageData &data)
                     text += " (" + tr("Reset: %1").arg(q.resetTime) + ")";
                 m_mcpLabel->setText(text);
                 m_mcpBar->setStyleSheet(
-                    QString("QProgressBar::chunk { background: %1; border-radius: 8px; }")
-                        .arg(barChunkColor(usedPct)));
+                    QString("QProgressBar { background-color: %1; border: none; border-radius: 6px; } "
+                            "QProgressBar::chunk { background: %2; border-radius: 6px; }")
+                        .arg(saName(), barChunkColor(usedPct)));
                 if (!q.usageDetails.isEmpty())
                     m_mcpDetailLabel->setText(q.usageDetails);
                 else
@@ -728,7 +717,7 @@ void MainWindow::refreshTheme()
                 "QPushButton:pressed { background-color: %3; }")
             .arg(acName(), bgName(), Theme::accentHover.name()));
     m_cardScroll->setStyleSheet(
-        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+        QString("QScrollArea, QScrollArea > QWidget > QWidget { background-color: transparent; border: none; }"));
     m_cardContainer->setStyleSheet(QString("background-color: %1;").arg(sfName()));
 
     m_detailHeader->setStyleSheet(
@@ -738,7 +727,7 @@ void MainWindow::refreshTheme()
                 "ClickableCard:hover { background-color: %1; }")
             .arg(saName()));
     m_detailScroll->setStyleSheet(
-        QString("QScrollArea { background-color: %1; border: none; }").arg(sfName()));
+        QString("QScrollArea, QScrollArea > QWidget > QWidget { background-color: transparent; border: none; }"));
     m_detailContainer->setStyleSheet(QString("background-color: %1;").arg(sfName()));
     m_timestampLabel->setStyleSheet("font-size: 11px;");
 

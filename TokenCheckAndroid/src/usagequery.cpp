@@ -132,6 +132,10 @@ void UsageQuery::sendRequest(PlatformQuery *pq, const QString &path, const QStri
                               PlatformHandler *handler, int endpointIndex, int retry)
 {
     QUrl url(pq->config.baseUrl + path + query);
+#ifdef Q_OS_IOS
+    if (url.scheme() == QLatin1String("http"))
+        url.setScheme(QLatin1String("https"));
+#endif
     QNetworkRequest request(url);
     QByteArray authHeader = pq->config.authToken.toUtf8();
     QString prefix = handler->authHeaderPrefix();

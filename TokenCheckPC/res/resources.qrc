@@ -3,5 +3,6 @@
         <file>icon.png</file>
         <file>arrow_up.png</file>
         <file>arrow_down.png</file>
+        <file>style.qss</file>
     </qresource>
 </RCC>

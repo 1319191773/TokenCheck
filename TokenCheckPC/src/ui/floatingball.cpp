@@ -2,6 +2,7 @@
 #include "appsettings.h"
 #include "datamanager.h"
 #include "theme.h"
+#include "thresholdcolor.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QApplication>
@@ -21,7 +22,7 @@ FloatingBall::FloatingBall(QWidget *parent)
     , m_clickTimer(new QTimer(this))
     , m_pendingSingleClick(false)
     , m_pulseTimer(new QTimer(this))
-    , m_snapCheckTimer(new QTimer(this))
+    , m_autoSnapTimer(new QTimer(this))
     , m_glowOpacity(0.0)
     , m_pulseStep(0)
     , m_pulseMaxSteps(0)
@@ -41,8 +42,8 @@ FloatingBall::FloatingBall(QWidget *parent)
     m_pulseTimer->setInterval(50);
     connect(m_pulseTimer, &QTimer::timeout, this, &FloatingBall::onPulseTick);
 
-    m_snapCheckTimer->setInterval(50);
-    connect(m_snapCheckTimer, &QTimer::timeout, this, &FloatingBall::onSnapCheck);
+    m_autoSnapTimer->setSingleShot(true);
+    connect(m_autoSnapTimer, &QTimer::timeout, this, &FloatingBall::onAutoSnapTimeout);
 
     m_loadingTimer->setInterval(80);
     connect(m_loadingTimer, &QTimer::timeout, this, &FloatingBall::onLoadingTick);
@@ -129,6 +130,10 @@ void FloatingBall::onAllDataUpdated()
         m_status.clear();
     update();
     startPulse(true);
+    if (m_snapped && !m_hovering && !m_dragging) {
+        popOut();
+        m_autoSnapTimer->start(10000);
+    }
 }
 
 void FloatingBall::startPulse(bool success)
@@ -200,22 +205,22 @@ void FloatingBall::paintEvent(QPaintEvent *)
     } else if (curData.isValid) {
         if (curData.platformType == "deepseek") {
             double bal = curData.balanceTotal();
-            baseRingColor = bal >= 0 ? (bal > 10 ? Theme::accent : (bal > 1 ? Theme::warning : Theme::danger)) : Theme::textDim;
+            baseRingColor = bal >= 0 ? ColorResolver::dsBalanceColor(bal, curData.balanceCurrency()) : Theme::textDim;
         } else {
             double pct = curData.tokenPercentage();
-            if (pct >= 0) {
-                double usedRatio = pct / 100.0;
-                baseRingColor = usedRatio < 0.5 ? Theme::accent : (usedRatio < 0.8 ? Theme::warning : Theme::danger);
-            }
+            if (pct >= 0)
+                baseRingColor = ColorResolver::glmTokenColor(pct);
         }
     }
 
     if (m_glowOpacity > 0.01) {
         QColor glowColor = (m_status == "Err") ? Theme::danger : baseRingColor;
-        glowColor.setAlphaF(m_glowOpacity * 0.5);
-        p.setBrush(glowColor);
         p.setPen(Qt::NoPen);
-        p.drawEllipse(cx - radius - 3, cy - radius - 3, (radius + 3) * 2, (radius + 3) * 2);
+        for (int i = 1; i <= 3; ++i) {
+            glowColor.setAlphaF(m_glowOpacity * 0.2 / i);
+            p.setBrush(glowColor);
+            p.drawEllipse(cx - radius - i*2, cy - radius - i*2, (radius + i*2) * 2, (radius + i*2) * 2);
+        }
     }
 
     QPainterPath path;
@@ -264,14 +269,24 @@ void FloatingBall::paintEvent(QPaintEvent *)
     if (names.size() > 1) {
         int dotSize = qMax(3, side / 25);
         int totalDots = names.size();
-        int dotSpacing = dotSize + 3;
-        int totalWidth = totalDots * dotSpacing;
-        int startX = cx - totalWidth / 2 + dotSpacing / 2;
-        int dotY = side - dotSize - 3;
+        int dotSpacing = dotSize + 4;
+        
+        int totalWidth = 0;
+        for (int i = 0; i < totalDots; i++) {
+            totalWidth += (names[i] == m_dm->currentAccount()) ? (dotSize * 2.5) : dotSize;
+            if (i < totalDots - 1) totalWidth += dotSpacing;
+        }
+
+        int startX = cx - totalWidth / 2;
+        int dotY = side - dotSize - 5;
+        
         for (int i = 0; i < totalDots; i++) {
             p.setPen(Qt::NoPen);
-            p.setBrush(names[i] == m_dm->currentAccount() ? Theme::accent : QColor(80, 80, 80));
-            p.drawEllipse(startX + i * dotSpacing, dotY, dotSize, dotSize);
+            bool isCurrent = (names[i] == m_dm->currentAccount());
+            int w = isCurrent ? (dotSize * 2.5) : dotSize;
+            p.setBrush(isCurrent ? Theme::accent : QColor(120, 120, 120, 180));
+            p.drawRoundedRect(startX, dotY, w, dotSize, dotSize / 2.0, dotSize / 2.0);
+            startX += w + dotSpacing;
         }
     }
 }
@@ -319,7 +334,7 @@ void FloatingBall::paintGlmAccount(QPainter &p, int side, const UsageData &data)
     int usedPct = (tokenPct >= 0) ? static_cast<int>(tokenPct) : -1;
 
     if (usedPct >= 0) {
-        QColor ringColor = usedPct < 50 ? Theme::accent : (usedPct < 80 ? Theme::warning : Theme::danger);
+        QColor ringColor = ColorResolver::glmTokenColor(usedPct);
         p.setPen(QPen(ringColor, penWidth, Qt::SolidLine, Qt::RoundCap));
         int spanAngle = static_cast<int>(usedPct / 100.0 * 360 * 16);
         p.drawArc(arcRect, 90 * 16, -spanAngle);
@@ -391,25 +406,10 @@ void FloatingBall::paintDeepSeekAccount(QPainter &p, int side, const UsageData &
 
     double primaryBal = balances.isEmpty() ? -1.0 : balances.first().amount;
     if (primaryBal >= 0) {
-        const AppSettings &s = AppSettings::instance();
-        double greenT = s.dsGreenThreshold();
-        double yellowT = s.dsYellowThreshold();
-        QColor greenC = s.dsGreenColor();
-        QColor yellowC = s.dsYellowColor();
-        QColor redC = s.dsRedColor();
-        if (!balances.isEmpty() && balances.first().currency == "USD") {
-            greenT = s.dsUsdGreenThreshold();
-            yellowT = s.dsUsdYellowThreshold();
-            greenC = s.dsUsdGreenColor();
-            yellowC = s.dsUsdYellowColor();
-            redC = s.dsUsdRedColor();
-        }
-        QColor ringColor;
-        if (primaryBal > greenT) ringColor = greenC;
-        else if (primaryBal > yellowT) ringColor = yellowC;
-        else ringColor = redC;
+        QString cur = balances.isEmpty() ? QString() : balances.first().currency;
+        QColor ringColor = ColorResolver::dsBalanceColor(primaryBal, cur);
         p.setPen(QPen(ringColor, penWidth, Qt::SolidLine, Qt::RoundCap));
-        double totalRef = balances.first().currency == "USD"
+        double totalRef = (cur == "USD")
                               ? AppSettings::instance().dsUsdTotalBalance()
                               : AppSettings::instance().dsTotalBalance();
         int spanAngle = static_cast<int>(qMin(primaryBal / qMax(totalRef, 0.01), 1.0) * 360 * 16);
@@ -455,7 +455,7 @@ void FloatingBall::paintDeepSeekAccount(QPainter &p, int side, const UsageData &
             f.setBold(true);
             p.setFont(f);
             p.setPen(pctColor);
-            QString curSymbol = balances[i].currency == "USD" ? "$" : (balances[i].currency == "CNY" ? QString::fromUtf8("\xc2\xa5") : balances[i].currency);
+            QString curSymbol = balances[i].currency == "USD" ? "$" : (balances[i].currency == "CNY" ? QString::fromUtf8("\u00A5") : balances[i].currency);
             QString line = curSymbol + QString::number(balances[i].amount, 'f', 2);
             p.drawText(QRect(0, startY + i * (lineSize + gap), side, lineSize + 2),
                        Qt::AlignCenter, line);
@@ -490,7 +490,7 @@ void FloatingBall::mouseMoveEvent(QMouseEvent *event)
             if (m_snapped) {
                 m_snapped = false;
                 m_snapEdge = 0;
-                m_snapCheckTimer->stop();
+                m_autoSnapTimer->stop();
             }
             move(event->globalPos() - m_dragPos);
         }
@@ -535,39 +535,23 @@ void FloatingBall::onSingleClickTimeout()
 void FloatingBall::enterEvent(QEvent *)
 {
     m_hovering = true;
+    if (m_snapped) {
+        m_autoSnapTimer->stop();
+        popOut();
+    }
 }
 
 void FloatingBall::leaveEvent(QEvent *)
 {
     m_hovering = false;
+    if (m_snapped && !m_dragging) {
+        m_autoSnapTimer->start(500);
+    }
 }
 
-void FloatingBall::onSnapCheck()
+void FloatingBall::onAutoSnapTimeout()
 {
-    if (!m_snapped)
-        return;
-
-    QPoint mousePos = QCursor::pos();
-    QRect ballRect = geometry();
-    QRect sRect = screenRect();
-
-    QRect hitRect = ballRect;
-    if (m_snapEdge == 1)
-        hitRect.setLeft(sRect.left());
-    else if (m_snapEdge == 2)
-        hitRect.setRight(sRect.right());
-
-    bool inZone = hitRect.contains(mousePos);
-    if (inZone && !m_hovering) {
-        m_hovering = true;
-        QPoint target;
-        if (m_snapEdge == 1)
-            target = QPoint(sRect.left(), y());
-        else
-            target = QPoint(sRect.right() - m_ballSize, y());
-        animateTo(target);
-    } else if (!inZone && m_hovering) {
-        m_hovering = false;
+    if (m_snapped && !m_hovering && !m_dragging) {
         snapToEdge();
     }
 }
@@ -588,12 +572,29 @@ void FloatingBall::checkSnapToEdge()
 
     if (m_snapEdge != 0) {
         m_snapped = true;
-        snapToEdge();
-        m_snapCheckTimer->start();
+        if (!m_hovering) {
+            snapToEdge();
+        } else {
+            popOut();
+        }
     } else {
         m_snapped = false;
-        m_snapCheckTimer->stop();
+        m_autoSnapTimer->stop();
     }
+}
+
+void FloatingBall::popOut()
+{
+    if (!m_snapped) return;
+    QRect sRect = screenRect();
+    QPoint target;
+    if (m_snapEdge == 1)
+        target = QPoint(sRect.left(), pos().y());
+    else if (m_snapEdge == 2)
+        target = QPoint(sRect.right() - m_ballSize, pos().y());
+    else
+        return;
+    animateTo(target);
 }
 
 void FloatingBall::snapToEdge()

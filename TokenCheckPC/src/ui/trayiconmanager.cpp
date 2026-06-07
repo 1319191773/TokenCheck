@@ -5,6 +5,7 @@
 #include "appsettings.h"
 #include "datamanager.h"
 #include "theme.h"
+#include "thresholdcolor.h"
 
 #include <QApplication>
 #include <QAction>
@@ -128,7 +129,7 @@ void TrayIconManager::checkQuotaNotifications()
             }
         } else {
             double bal = d.balanceTotal();
-            if (bal >= 0 && bal < 1.0) {
+            if (bal >= 0 && ColorResolver::dsBalanceColor(bal, d.balanceCurrency()) == AppSettings::instance().dsRedColor()) {
                 QString key = d.platformName + "_balance";
                 currentNotified.insert(key);
                 if (!m_notifiedQuotas.contains(key)) {

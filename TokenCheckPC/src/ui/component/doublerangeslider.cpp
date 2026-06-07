@@ -1,4 +1,4 @@
-#include "mydoubleslider.h"
+#include "doublerangeslider.h"
 
 namespace
 {
@@ -7,7 +7,7 @@ const int scSliderBarHeight = 5;
 const int scLeftRightMargin = 1;
 }
 
-myDoubleSlider::myDoubleSlider(QWidget *parent)
+DoubleRangeSlider::DoubleRangeSlider(QWidget *parent)
     : QWidget(parent)
     , mMinimum(0)
     , mMaximum(100)
@@ -25,7 +25,7 @@ myDoubleSlider::myDoubleSlider(QWidget *parent)
     setMouseTracking(true);
 }
 
-myDoubleSlider::myDoubleSlider(Qt::Orientation ori, Options t, QWidget *aParent)
+DoubleRangeSlider::DoubleRangeSlider(Qt::Orientation ori, Options t, QWidget *aParent)
     : QWidget(aParent)
     , mMinimum(0)
     , mMaximum(100)
@@ -44,7 +44,7 @@ myDoubleSlider::myDoubleSlider(Qt::Orientation ori, Options t, QWidget *aParent)
     setMouseTracking(true);
 }
 
-void myDoubleSlider::paintEvent(QPaintEvent *aEvent)
+void DoubleRangeSlider::paintEvent(QPaintEvent *aEvent)
 {
     Q_UNUSED(aEvent);
     QPainter painter(this);
@@ -91,20 +91,20 @@ void myDoubleSlider::paintEvent(QPaintEvent *aEvent)
     painter.drawRect(selectedRect);
 }
 
-QRectF myDoubleSlider::firstHandleRect() const
+QRectF DoubleRangeSlider::firstHandleRect() const
 {
     float percentage = (mLowerValue - mMinimum) * 1.0 / mInterval;
     return handleRect(percentage * validLength() + scLeftRightMargin);
 }
 
-QRectF myDoubleSlider::secondHandleRect() const
+QRectF DoubleRangeSlider::secondHandleRect() const
 {
     float percentage = (mUpperValue - mMinimum) * 1.0 / mInterval;
     return handleRect(percentage * validLength() + scLeftRightMargin
                       + (type.testFlag(LeftHandle) ? scHandleSideLength : 0));
 }
 
-QRectF myDoubleSlider::handleRect(int aValue) const
+QRectF DoubleRangeSlider::handleRect(int aValue) const
 {
     if (orientation == Qt::Horizontal)
         return QRectF(aValue, (height() - scHandleSideLength) / 2.0, scHandleSideLength, scHandleSideLength);
@@ -112,7 +112,7 @@ QRectF myDoubleSlider::handleRect(int aValue) const
         return QRectF((width() - scHandleSideLength) / 2.0, aValue, scHandleSideLength, scHandleSideLength);
 }
 
-void myDoubleSlider::mousePressEvent(QMouseEvent *aEvent)
+void DoubleRangeSlider::mousePressEvent(QMouseEvent *aEvent)
 {
     if (aEvent->buttons() & Qt::LeftButton) {
         int posCheck, posMax, posValue, firstHandleRectPosValue, secondHandleRectPosValue;
@@ -154,7 +154,7 @@ void myDoubleSlider::mousePressEvent(QMouseEvent *aEvent)
     }
 }
 
-void myDoubleSlider::mouseMoveEvent(QMouseEvent *aEvent)
+void DoubleRangeSlider::mouseMoveEvent(QMouseEvent *aEvent)
 {
     if (aEvent->buttons() & Qt::LeftButton) {
         int posValue, firstHandleRectPosValue, secondHandleRectPosValue;
@@ -182,7 +182,7 @@ void myDoubleSlider::mouseMoveEvent(QMouseEvent *aEvent)
     }
 }
 
-void myDoubleSlider::mouseReleaseEvent(QMouseEvent *aEvent)
+void DoubleRangeSlider::mouseReleaseEvent(QMouseEvent *aEvent)
 {
     Q_UNUSED(aEvent);
     int aHandleStateChangeIndex = 0;
@@ -198,7 +198,7 @@ void myDoubleSlider::mouseReleaseEvent(QMouseEvent *aEvent)
         setUpperValue(mUpperValue);
 }
 
-void myDoubleSlider::changeEvent(QEvent *aEvent)
+void DoubleRangeSlider::changeEvent(QEvent *aEvent)
 {
     if (aEvent->type() == QEvent::EnabledChange) {
         mBackgroudColor = isEnabled() ? mBackgroudColorEnabled : mBackgroudColorDisabled;
@@ -206,21 +206,17 @@ void myDoubleSlider::changeEvent(QEvent *aEvent)
     }
 }
 
-QSize myDoubleSlider::minimumSizeHint() const
+QSize DoubleRangeSlider::minimumSizeHint() const
 {
     return QSize(scHandleSideLength * 2 + scLeftRightMargin * 2, scHandleSideLength);
 }
 
-int myDoubleSlider::GetMinimun() const { return mMinimum; }
-void myDoubleSlider::SetMinimum(int a) { setMinimum(a); }
-int myDoubleSlider::GetMaximun() const { return mMaximum; }
-void myDoubleSlider::SetMaximum(int a) { setMaximum(a); }
-int myDoubleSlider::GetLowerValue() const { return mLowerValue; }
-void myDoubleSlider::SetLowerValue(int a) { setLowerValue(a); }
-int myDoubleSlider::GetUpperValue() const { return mUpperValue; }
-void myDoubleSlider::SetUpperValue(int a) { setUpperValue(a); }
+int DoubleRangeSlider::minimum() const { return mMinimum; }
+int DoubleRangeSlider::maximum() const { return mMaximum; }
+int DoubleRangeSlider::lowerValue() const { return mLowerValue; }
+int DoubleRangeSlider::upperValue() const { return mUpperValue; }
 
-void myDoubleSlider::setLowerValue(int aLowerValue)
+void DoubleRangeSlider::setLowerValue(int aLowerValue)
 {
     if (aLowerValue > mMaximum) aLowerValue = mMaximum;
     if (aLowerValue < mMinimum) aLowerValue = mMinimum;
@@ -232,7 +228,7 @@ void myDoubleSlider::setLowerValue(int aLowerValue)
     update();
 }
 
-void myDoubleSlider::setUpperValue(int aUpperValue)
+void DoubleRangeSlider::setUpperValue(int aUpperValue)
 {
     if (aUpperValue > mMaximum) aUpperValue = mMaximum;
     if (aUpperValue < mMinimum) aUpperValue = mMinimum;
@@ -244,7 +240,7 @@ void myDoubleSlider::setUpperValue(int aUpperValue)
     update();
 }
 
-void myDoubleSlider::setMinimum(int aMinimum)
+void DoubleRangeSlider::setMinimum(int aMinimum)
 {
     if (aMinimum <= mMaximum) {
         mMinimum = aMinimum;
@@ -258,7 +254,7 @@ void myDoubleSlider::setMinimum(int aMinimum)
     emit rangeChanged(mMinimum, mMaximum);
 }
 
-void myDoubleSlider::setMaximum(int aMaximum)
+void DoubleRangeSlider::setMaximum(int aMaximum)
 {
     if (aMaximum >= mMinimum) {
         mMaximum = aMaximum;
@@ -272,19 +268,19 @@ void myDoubleSlider::setMaximum(int aMaximum)
     emit rangeChanged(mMinimum, mMaximum);
 }
 
-int myDoubleSlider::validLength() const
+int DoubleRangeSlider::validLength() const
 {
     int len = (orientation == Qt::Horizontal) ? width() : height();
     return len - scLeftRightMargin * 2 - scHandleSideLength * (type.testFlag(DoubleHandles) ? 2 : 1);
 }
 
-void myDoubleSlider::SetRange(int aMinimum, int aMaximum)
+void DoubleRangeSlider::setRange(int aMinimum, int aMaximum)
 {
     setMinimum(aMinimum);
     setMaximum(aMaximum);
 }
 
-void myDoubleSlider::SetTracking(bool enable)
+void DoubleRangeSlider::setTracking(bool enable)
 {
     mEnableTracking = enable;
 }

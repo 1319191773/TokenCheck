@@ -416,4 +416,37 @@ void AppSettings::applyAutoStart(bool enabled)
         reg.remove("TokenCheckPC");
     }
 #endif
+
+#ifdef Q_OS_MAC
+    QString launchDir = QDir::homePath() + "/Library/LaunchAgents";
+    QString plistPath = launchDir + "/com.zaitech.TokenCheckPC.plist";
+    if (enabled) {
+        QDir().mkpath(launchDir);
+        QString execPath = QCoreApplication::applicationFilePath();
+        QString plist = QString(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+            "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+            "<plist version=\"1.0\">\n"
+            "<dict>\n"
+            "    <key>Label</key>\n"
+            "    <string>com.zaitech.TokenCheckPC</string>\n"
+            "    <key>ProgramArguments</key>\n"
+            "    <array>\n"
+            "        <string>%1</string>\n"
+            "    </array>\n"
+            "    <key>RunAtLoad</key>\n"
+            "    <true/>\n"
+            "    <key>KeepAlive</key>\n"
+            "    <false/>\n"
+            "</dict>\n"
+            "</plist>\n"
+        ).arg(execPath);
+        QFile f(plistPath);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            f.write(plist.toUtf8());
+    } else {
+        QFile::remove(plistPath);
+    }
+#endif
 }

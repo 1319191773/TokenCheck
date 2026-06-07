@@ -1,13 +1,21 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QJniObject>
 #include <QTimer>
 #include "usagequery.h"
 #include "appsettings.h"
-#include "widgetbridge.h"
 #include "platform_registry.h"
 
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#include "widgetbridge.h"
+#endif
+
+#ifdef Q_OS_IOS
+#include "iosappgroups.h"
+#endif
+
+#ifdef Q_OS_ANDROID
 class AndroidHelper : public QObject
 {
     Q_OBJECT
@@ -48,25 +56,38 @@ static void finishActivity()
     if (activity.isValid())
         activity.callMethod<void>("finish");
 }
+#endif
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
-    app.setApplicationName("TokenCheckAndroid");
-    app.setOrganizationName("com.tokencheck.android");
+    app.setApplicationName("TokenCheck");
+    app.setOrganizationName("com.tokencheck");
 
     PlatformRegistry::init();
 
     UsageQuery query;
-    WidgetBridge bridge;
 
+#ifdef Q_OS_ANDROID
+    WidgetBridge bridge;
     QObject::connect(&query, &UsageQuery::queryFinished,
                      &bridge, &WidgetBridge::onPlatformFinished);
     QObject::connect(&query, &UsageQuery::queryAllFinished,
                      &bridge, &WidgetBridge::onAllFinished);
+#endif
+
+#ifdef Q_OS_IOS
+    IOSAppGroups iosBridge;
+    QObject::connect(&query, &UsageQuery::queryFinished,
+                     &iosBridge, &IOSAppGroups::onPlatformFinished);
+    QObject::connect(&query, &UsageQuery::queryAllFinished,
+                     &iosBridge, &IOSAppGroups::onAllFinished);
+#endif
+
     QObject::connect(&query, &UsageQuery::queryFailed,
                      [](const QString &error) { qWarning() << "Query failed:" << error; });
 
+#ifdef Q_OS_ANDROID
     bool refreshOnly = checkWidgetRefreshIntent();
 
     if (refreshOnly) {
@@ -74,13 +95,17 @@ int main(int argc, char *argv[])
             QTimer::singleShot(500, []() { finishActivity(); });
         });
     }
+#endif
 
     QQmlApplicationEngine engine;
 
     engine.rootContext()->setContextProperty("usageQuery", &query);
     engine.rootContext()->setContextProperty("appSettings", &AppSettings::instance());
     engine.rootContext()->setContextProperty("platformRegistry", &PlatformRegistry::instance());
+
+#ifdef Q_OS_ANDROID
     engine.rootContext()->setContextProperty("androidHelper", new AndroidHelper(&app));
+#endif
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() { QCoreApplication::exit(-1); },
@@ -91,7 +116,11 @@ int main(int argc, char *argv[])
         AppSettings::instance().syncWidgetConfig();
     });
 
-    if (refreshOnly || AppSettings::instance().isConfigured())
+    if (
+#ifdef Q_OS_ANDROID
+        refreshOnly ||
+#endif
+        AppSettings::instance().isConfigured())
         query.query();
 
     int interval = AppSettings::instance().autoRefreshInterval();

@@ -1,6 +1,6 @@
 #include "appsettings.h"
-#include "androidprefs.h"
 #include "platform_registry.h"
+#include "securestorage.h"
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -8,6 +8,14 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDateTime>
+
+#ifdef Q_OS_ANDROID
+#include "androidprefs.h"
+#endif
+
+#ifdef Q_OS_IOS
+#include "iosappgroups.h"
+#endif
 
 AppSettings::AppSettings(QObject *parent) : QObject(parent)
 {
@@ -67,6 +75,7 @@ void AppSettings::setPlatform(int i, const QString &name, const QString &baseUrl
         m_platforms[i].enabled = enabled;
         if (!platformType.isEmpty())
             m_platforms[i].platformType = platformType;
+        SecureStorage::saveToken(m_platforms[i].storageId(), token);
         save();
         emit platformsChanged();
     }
@@ -91,6 +100,7 @@ void AppSettings::addPlatform(const QString &name, const QString &baseUrl,
         else
             pc.platformType = "glm";
     }
+    SecureStorage::saveToken(pc.storageId(), token);
     m_platforms.append(pc);
     save();
     emit platformsChanged();
@@ -99,6 +109,7 @@ void AppSettings::addPlatform(const QString &name, const QString &baseUrl,
 void AppSettings::removePlatform(int i)
 {
     if (i >= 0 && i < m_platforms.size()) {
+        SecureStorage::deleteToken(m_platforms[i].storageId());
         m_platforms.removeAt(i);
         save();
         emit platformsChanged();
@@ -219,6 +230,8 @@ void AppSettings::load()
             QString lower = p.baseUrl.toLower();
             p.platformType = lower.contains("deepseek") ? "deepseek" : "glm";
         }
+        if (p.authToken.isEmpty())
+            p.authToken = SecureStorage::loadToken(p.storageId());
     }
 
     m_autoRefreshInterval = root["autoRefreshInterval"].toInt(5);
@@ -253,6 +266,8 @@ void AppSettings::save()
 void AppSettings::syncWidgetConfig()
 {
     save();
+
+#ifdef Q_OS_ANDROID
     AndroidPrefs::writeInt("widgetShowToken", m_widgetShowToken);
     AndroidPrefs::writeInt("widgetShowMcp", m_widgetShowMcp);
     AndroidPrefs::writeInt("widgetShowTime", m_widgetShowTime);
@@ -262,11 +277,22 @@ void AppSettings::syncWidgetConfig()
     AndroidPrefs::writeInt("widgetRefreshInterval", m_autoRefreshInterval);
 
     QJsonArray arr;
-    for (const auto &p : m_platforms)
-        if (p.enabled && !p.authToken.isEmpty())
-            arr.append(p.toJson());
+    for (const auto &p : m_platforms) {
+        if (p.enabled && !p.authToken.isEmpty()) {
+            QJsonObject obj;
+            obj["name"] = p.name;
+            obj["baseUrl"] = p.baseUrl;
+            obj["type"] = p.platformType;
+            arr.append(obj);
+        }
+    }
     AndroidPrefs::write("platformConfigs",
                         QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
 
     AndroidPrefs::notifyWidgetUpdate();
+#endif
+
+#ifdef Q_OS_IOS
+    IOSAppGroups::syncWidgetConfig(this);
+#endif
 }

@@ -6,7 +6,7 @@
 #include <QProgressBar>
 #include <QTableWidget>
 #include <QStackedWidget>
-#include "usagequery.h"
+#include "types.h"
 
 class DataManager;
 class QVBoxLayout;
